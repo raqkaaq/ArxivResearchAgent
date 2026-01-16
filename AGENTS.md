@@ -14,4 +14,4 @@ When running or executing Python code, always load and follow the conda skill to
 
 ### LangGraph Skill Usage
 
-When building agents with LangGraph, load the langgraph skill for access to design principles and best practices. Follow the skill's documentation for node-based agent construction, state management, and error handling. Integrate external Semantic Scholar SDK for enriched data.
+When building agents with LangGraph, load the langgraph skill for access to design principles and best practices. Follow the skill's documentation for node-based agent construction, state management, and error handling. Integrate external Semantic Scholar SDK for enriched data. Additional custom skills available: multiagent_supervisor (for routing subgraphs), rag_orchestrator (for retrieval nodes), context_manager (for compression), branch_agent (for dynamic branching), graph_persistence (for checkpointers).

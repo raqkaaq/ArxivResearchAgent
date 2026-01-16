@@ -50,13 +50,14 @@ graph TD
 
 ### Requirements
 - **Functional**: Explore 2-3 approaches; evaluate/merge reliably.
-- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval.
-- **Dependencies**: LangGraph, LLM integration.
+- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval; use LangGraph checkpointer for persistence, interrupts for human-in-loop, streaming for real-time responses.
+- **Dependencies**: LangGraph (with checkpointer, interrupts, streaming), LLM integration.
 
 ## State Sharing & Communication
 - **Shared State**: TypedDict with liked_embeddings, logs.
 - **Communication**: Command-based routing; state mutations.
-- **Persistence**: MemorySaver + DBs.
+- **Persistence**: LangGraph checkpointer (MemorySaver) for graph state; DBs for long-term.
+- **Advanced LangGraph Features**: Interrupts for user interventions (e.g., confirm branches); streaming for real-time node outputs; tool integration for external APIs (e.g., SDKs as tools).
 
 ## Requirements & Roadmap
 - **Functional**: Route accurately; BranchAgent explores effectively.

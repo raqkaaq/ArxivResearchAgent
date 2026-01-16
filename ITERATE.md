@@ -10,10 +10,10 @@ This document lists the key topics to discuss and iterate on before full impleme
 
 3. **Agent Communication & State Sharing**: Define how multiagents (supervisor + subgraphs) share state (e.g., liked embeddings). Cover persistence, concurrency, and inter-session syncing.
    - **Decision**: Keep stateful for context-heavy tasks (e.g., CLI chat, Context Management). Stateless could work for isolated RAG queries but loses history. Use hybrid: Stateful graphs with DB persistence.
-   - **Proposal**: Use LangGraph's TypedDict state with shared fields (e.g., liked_embeddings as list of vectors). Supervisor updates global state; subgraphs read/write via nodes. Persistence via MemorySaver for sessions; Chroma/SQLite for long-term (load on startup).
-   - **Communication**: Command-based routing (no direct messaging); state mutations trigger updates.
+   - **Proposal**: Use LangGraph's TypedDict state with shared fields (e.g., liked_embeddings as list of vectors). Supervisor updates global state; subgraphs read/write via nodes. Persistence via LangGraph checkpointer (MemorySaver) for sessions; Chroma/SQLite for long-term (load on startup).
+   - **Communication**: Command-based routing; state mutations; interrupts for human-in-loop; streaming for real-time.
    - **Edge Cases**: Concurrent CLI/automator runs—use locks or queue. Session isolation via user IDs.
-   - **Completed**: Discussed stateful vs. stateless; chose stateful with BranchAgent integration.
+   - **Completed**: Discussed stateful vs. stateless; chose stateful with BranchAgent integration and LangGraph features.
 
 4. **Prompt Engineering**: Develop structured prompts for RAG (retrieval, grading, rewriting), Context Management (summarization, pruning), and agents (routing, classification). Include fine-tuning via user feedback loops.
 

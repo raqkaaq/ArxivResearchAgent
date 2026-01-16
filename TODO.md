@@ -20,6 +20,7 @@ This TODO outlines the iterative implementation of the Arxiv Research Agent syst
 - [ ] Unit test: Data fetching and embedding accuracy
 
 ## Phase 3: RAG System
+- [ ] Load and use rag_orchestrator skill for retrieval nodes
 - [ ] Implement vector-based retrieval in Chroma
 - [ ] Build NetworkX knowledge graph (nodes: papers/authors, edges: citations)
 - [ ] Add PageRank for importance ranking in graph
@@ -30,18 +31,24 @@ This TODO outlines the iterative implementation of the Arxiv Research Agent syst
 - [ ] Unit test: RAG retrieval relevance
 
 ## Phase 4: Agent Layer
-- [ ] Implement supervisor agent for routing (CLI vs. Automator)
+- [ ] Load multiagent_supervisor, branch_agent, graph_persistence skills
+- [ ] Implement supervisor agent for routing (CLI vs. Automator) using multiagent_supervisor
+- [ ] Add LangGraph checkpointer (MemorySaver) for persistence using graph_persistence
+- [ ] Implement interrupts for human-in-loop (e.g., confirm branches)
+- [ ] Enable streaming for real-time responses in nodes
+- [ ] Integrate tools for external APIs (Arxiv/Semantic Scholar as LangChain tools)
 - [ ] Build CLI subgraph (input, RAG, response nodes)
 - [ ] Add user feedback collection (likes in SQLite)
-- [ ] Build Automator subgraph (pull, embed, similarity, classify nodes)
+- [ ] Build Automator subgraph (pull, embed, similarity, classify nodes) with BranchAgent
 - [ ] Integrate Arxiv/Semantic Scholar for ingestion
 - [ ] Unit test: Routing and subgraph execution
 - [ ] Integration test: Basic CLI flow
 
 ## Phase 5: Advanced Features
-- [ ] Implement Context Management with dynamic thresholds
+- [ ] Load context_manager skill for compression
+- [ ] Implement Context Management with dynamic thresholds using context_manager
 - [ ] Add compression endpoints (compress_chain, merge_into_chain)
-- [ ] Implement BranchAgent (triggers, exploration, evaluation, merging)
+- [ ] Implement BranchAgent (triggers, exploration, evaluation, merging) using branch_agent skill
 - [ ] Integrate BranchAgent into supervisor
 - [ ] Full multiagent test (CLI + Automator + BranchAgent)
 - [ ] Unit test: Context handling and branching
@@ -57,9 +64,11 @@ This TODO outlines the iterative implementation of the Arxiv Research Agent syst
 - [ ] Unit tests for all components
 - [ ] Integration tests for phases
 - [ ] Performance tests (retrieval latency, DB growth)
+- [ ] Evaluation: RAG relevance metrics (BLEU, recall), classification accuracy
 - [ ] Validation: User feedback loops and quality classification data collection
 
 ## Dependencies & Notes
 - Requires: Conda env, Ollama, external SDKs.
+- Missing: Deployment scripts, user docs, scalability (DB pruning).
 - Iterate: After each phase, review and adjust PRDs.
 - Prioritize: Core RAG and agents first, advanced features later.
