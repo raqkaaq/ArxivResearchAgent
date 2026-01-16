@@ -96,10 +96,15 @@ flowchart TD
 - **Dependencies**: sqlite3, chromadb, langchain.
 - **Tradeoffs**: Compression adds LLM calls (latency); separation avoids RAG coupling but requires duplicate Chroma usage.
 
+## Integration with Arxiv Agent
+- **BranchAgent Integration**: Provides endpoints (`compress_chain`, `merge_into_chain`) for BranchAgent to compress/merge context chains post-branching. Handles chain persistence and retrieval for dynamic merging.
+- **CLI/Automator**: Pre-LLM nodes call compression for window fitting.
+- **RAG**: Can query Chroma separately for archived history (separation of concerns). See AGENT_PRD.md for BranchAgent details.
+
 ## Implementation Roadmap
 1. Setup: Init SQLite/Chroma.
-2. Core: Build compression engine.
-3. Integration: Add to CLI/automator.
-4. Testing: Evaluate on long chats.
+2. Core: Build compression engine with endpoints.
+3. Integration: Add to CLI/automator and BranchAgent.
+4. Testing: Evaluate on long chats and branching.
 
 This Context Management complements RAG for robust, long-context handling. Reference PRD.md for overall system integration.
