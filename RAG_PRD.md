@@ -90,13 +90,20 @@ flowchart TD
 
 ## Components and Features
 - **Vector Retrieval**: Chroma with Ollama embeddings; hybrid (semantic + keyword).
-- **Knowledge Graph**: NetworkX for simple graphs; nodes (papers/authors), edges (citations). Queries via traversal.
+- **Knowledge Graph**: NetworkX for graphs; key algorithms:
+  - **PageRank**: Ranks nodes by importance based on incoming links (citations). Iteratively calculates scores—higher for nodes linked by influential others. Used to rank retrieved papers by citation influence.
+  - **Centrality**: Measures node influence (e.g., degree for connections, betweenness for bridges in citation networks).
+  - **Shortest Path**: Finds related papers via minimal citation hops. Nodes (papers/authors), edges (citations).
 - **Agentic Layer**: Supervisor routes to sub-agents (retrieval, reasoning); Command-based routing in LangGraph.
 - **LLM Integration**: Ollama for local; Gemini fallback. Structured prompts for grading/rewriting.
 - **Modes**:
   - Pre-Agent: LCEL chain for fast responses.
   - Agent Tool: Full graph for adaptive reasoning.
-- **Features**: Speculative drafting (LLM drafts to guide retrieval); cascading grading; multimodal-ready (extend for figures).
+- **Features**: 
+  - Speculative drafting (LLM drafts response to guide retrieval).
+  - HyDE (Hypothetical Document Embeddings—generate hypothetical answer via LLM, embed for better document matching).
+  - Cascading grading (multi-stage relevance checks).
+  - Multimodal-ready (extend for figures).
 
 ## Requirements and Tradeoffs
 - **Functional**: Retrieve Arxiv papers via vectors/graphs; generate faithful answers; classify/ingest via agents.

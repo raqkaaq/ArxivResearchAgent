@@ -20,7 +20,7 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 - **User-Triggered Automator**:
   - Pull recent Arxiv papers (e.g., last 24-48 hours).
   - Embed papers and compare to user-liked baselines for similarity.
-  - Classify importance using LLM (1-10 score based on novelty, impact, relevance).
+  - Classify importance using LLM (1-10 score based on novelty, impact, relevance), with data from Semantic Scholar (citations/h-index) or Arxiv (metadata) for training.
   - Store high-importance papers (metadata in SQLite, embeddings in Chroma, downloads in papers/ directory).
   - Prune old/unimportant data to manage storage.
 - **Shared Infrastructure**:
@@ -28,7 +28,7 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - Metadata DB (SQLite) for structured paper details.
   - Paper Storage (papers/ directory) for selective PDF/source downloads.
   - Logging (logs/ directory) with structured JSON logs for actions, errors, and metrics.
-  - Context Management: Adaptive compression for long conversations. (See CONTEXT_PRD.md for detailed system design, including architecture diagrams and inspirations from modern papers.)
+  - Context Management: Adaptive compression for long conversations with dynamic token thresholds based on LLM. (See CONTEXT_PRD.md for detailed system design, including architecture diagrams and inspirations from modern papers.)
   - LLM Config: Ollama for local inference; Gemini for API-based fallback/scalability.
 - **Intelligence & Dynamics**:
   - Similarity-based filtering: Use cosine similarity on embeddings to find papers "similar to liked ones."
@@ -39,12 +39,13 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 ## Architecture
 - **Tech Stack**:
   - LangGraph: For multiagent stateful graphs (supervisor + subgraphs).
-  - Arxiv SDK (arxiv.py): For searching, fetching metadata, downloading.
-  - ChromaDB: Vector database for embeddings (shared with RAG and Context Management).
+  - Arxiv SDK (arxiv.py): For searching, fetching metadata.
+  - Semantic Scholar SDK (external): For citations, h-index, paper counts, and downloading.
+  - ChromaDB: Vector database for embeddings (in db/chroma/, shared with RAG and Context Management).
   - NetworkX: For knowledge graph modeling in RAG.
-  - SQLite: Relational DB for metadata and conversation logs (shared with Context Management).
+  - SQLite: Relational DB for metadata and conversation logs (in db/sqlite/, shared with Context Management).
   - LangChain Ollama/Gemini: For LLM and embeddings.
-  - Python: Core language. (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
+  - Python: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
 - **Multiagent Structure**:
   - **Supervisor Agent**: Routes to CLI or Automator subgraphs based on input.
   - **CLI Subgraph**: Handles user interactions (nodes: input, RAG, research, response, like).
@@ -61,7 +62,7 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 ## Requirements
 - **Functional**:
   - Search Arxiv with queries/ID lists.
-  - Fetch metadata (title, authors, summary, categories, links).
+  - Fetch metadata (title, authors, summary, categories, links) or enriched data from Semantic Scholar (citations, h-index, paper counts).
   - Download PDFs/sources selectively.
   - Embed text for similarity search.
   - Classify papers with LLM scores.
@@ -75,11 +76,14 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - Scalability: Prune DBs; configurable limits (e.g., max papers=1000).
 - **Dependencies**:
   - Python 3.9+.
-  - Packages: langgraph, langchain-ollama, langchain-google-genai, chromadb, sqlite3, arxiv.
+  - Packages: langgraph, langchain-ollama, langchain-google-genai, chromadb, sqlite3, arxiv, requests, tenacity, diskcache. (See DATA_PRD.md for Semantic Scholar SDK details.)
 - **Assumptions**:
-  - User has Ollama installed locally.
+  - User has Ollama installed locally (via Docker or otherwise).
   - Server may not be always online (hence user-triggered automator).
   - Arxiv API rate limits respected (3s delay).
+  - Semantic Scholar SDK provided externally.
+  - Single-user system.
+  - Latest package versions handled by user.
 - **Constraints**:
   - No cronjobs; manual triggering.
   - Local-first; optional cloud LLM.

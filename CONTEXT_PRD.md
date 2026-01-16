@@ -54,7 +54,7 @@ The flow compresses and fits context dynamically, with hierarchical handling.
 ### Compression Flow
 ```mermaid
 flowchart TD
-    A[Incoming Message] --> B[Monitor Token Count]
+    A[Incoming Message] --> B[Monitor Token Count - Dynamic Threshold Based on LLM]
     B --> C{Exceeds Threshold?}
     C -->|Yes| D[Summarize Old Messages - LLM]
     C -->|No| E[Prune Low-Relevance - Ranking]
@@ -91,7 +91,7 @@ flowchart TD
 - **Integration**: Pre-LLM LangGraph node; uses RAG's Chroma separately.
 
 ## Requirements and Tradeoffs
-- **Functional**: Compress/fit histories for Ollama (<4k) and Gemini (consistency).
+- **Functional**: Compress/fit histories with dynamic thresholds based on current LLM.
 - **Non-Functional**: Compression preserves 80% relevance; retrieval <1s.
 - **Dependencies**: sqlite3, chromadb, langchain.
 - **Tradeoffs**: Compression adds LLM calls (latency); separation avoids RAG coupling but requires duplicate Chroma usage.

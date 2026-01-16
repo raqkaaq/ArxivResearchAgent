@@ -3,7 +3,7 @@
 This document lists the key topics to discuss and iterate on before full implementation. Based on PRDs (PRD.md, RAG_PRD.md, CONTEXT_PRD.md) and recent planning, prioritize these for refinement.
 
 ## Topics to Iterate On
-- **BranchAgent Design**: Specialized agent for dynamic context branching (exploration, evaluation, merging). Integrated into agent layer; uses Context Management endpoints. Only agent type for now.
+- **BranchAgent Design**: Specialized agent for dynamic context branching (exploration via LLM, evaluation combining faithfulness/relevance, merging via Context Management). Triggered by query heuristics (e.g., length/entropy). Only agent type for now.
 1. **CLI Interface Design (TUI with Textual)**: Design the terminal UI pages (chat, papers, automator, metrics). Discuss layouts, navigation, user interactions (e.g., liking papers), and integration with LangGraph.
 
 2. **TUI Metrics Page**: Design real-time metrics display (e.g., DB stats, query rates) using logs. Ensure it's local and runtime-focused.
@@ -19,7 +19,7 @@ This document lists the key topics to discuss and iterate on before full impleme
 
 5. **Arxiv Interface (Custom arxiv_sdk)**: Confirm the custom module handles rate limiting/retries. Integrate as tool in automator nodes.
 
-6. **User Feedback Loops**: Implement "like" ratings in TUI; update system (e.g., embeddings) for personalization.
+6. **User Feedback Loops**: Implement "like" ratings in TUI; collect data for quality classification (authors/categories → importance). (Linked to relevance engine.)
 
 7. **Error Handling & Robustness**: Detail retries, fallbacks, and interrupts across components.
 
@@ -28,5 +28,7 @@ This document lists the key topics to discuss and iterate on before full impleme
 9. **Deployment & Scaling**: Local setup; handle DB growth/pruning.
 
 10. **Logging & Monitoring**: JSON logs, metrics collection, basic alerting.
+
+- **Semantic Scholar SDK Integration**: Integrate external SDK for author/paper data (citations, h-index). (See DATA_PRD.md.)
 
 Mark topics as completed once discussed. Update this file during iterations.

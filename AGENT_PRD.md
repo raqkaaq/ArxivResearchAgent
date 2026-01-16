@@ -28,9 +28,9 @@ BranchAgent is the primary specialized agent type, enabling dynamic context bran
 BranchAgent is a LangGraph node/agent that dynamically explores multiple approaches to solve a task (e.g., different RAG strategies or prompt variants), evaluates results via LLM, and merges the best outcome into the main conversation context. It is the only specialized agent type currently; others may be added later.
 
 ### Mechanism
-- **Trigger**: Activated by supervisor or subgraphs for ambiguous/complex queries (e.g., heuristic on query length >50 chars).
+- **Trigger**: Activated by supervisor or subgraphs for ambiguous/complex queries (e.g., heuristic on query length or entropy).
 - **Exploration**: Spawns 2-3 parallel branches, each testing a variant (e.g., Path 1: Standard RAG; Path 2: Graph-enhanced; Path 3: Speculative).
-- **Evaluation**: LLM scores each result (e.g., "Rate quality 1-10").
+- **Evaluation**: LLM scores each result (e.g., combine faithfulness and relevance scores).
 - **Merging**: Selects best result; calls Context Management endpoints to merge into the context chain.
 - **Integration**: Uses shared state; interfaces with Context Management for compression/merging.
 
