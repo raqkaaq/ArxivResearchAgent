@@ -1,23 +1,23 @@
 # Agent Layer Product Requirements Document: Multiagent Orchestration for Arxiv Research Agent
 
 ## Overview
-This PRD details the agent layer of the Arxiv Research Agent, focusing on multiagent orchestration via LangGraph. It includes the supervisor for routing, subgraphs for CLI and automator tasks, and specialized agents like BranchAgent for dynamic context branching. The layer emphasizes stateful, adaptive reasoning while separating concerns (e.g., no direct LLM calls in non-agent components).
+This PRD details the agent layer of the Arxiv Research Agent, focusing on multiagent orchestration via Orchestral AI. It includes the supervisor for routing, subgraphs for CLI and automator tasks, and specialized agents like BranchAgent for dynamic context branching. The layer emphasizes stateful, adaptive reasoning while separating concerns (e.g., no direct LLM calls in non-agent components).
 
 The agent layer enables intelligent task delegation, with BranchAgent as the primary specialized type for exploring multiple approaches and consolidating results.
 
 ## Supervisor Agent
 - **Role**: Top-level router that evaluates user input and delegates to appropriate subgraphs.
 - **Functionality**: Parses input (e.g., "chat" triggers CLI, "automate" triggers automator); updates shared state.
-- **Integration**: LangGraph node; uses Command for routing.
+- **Integration**: Orchestral AI node; uses Command for routing.
 
 ## Subgraph Agents
 ### CLI Subgraph
-- **Nodes**: input_node (validate query), hybrid_rag_node (retrieve via hybrid Chroma+NetworkX RAG), response_node (generate reply), like_node (update preferences).
+- **Nodes**: input_node (validate query), hybrid_rag_node (retrieve via hybrid PostgreSQL+Neo4j RAG), response_node (generate reply), like_node (update preferences).
 - **Purpose**: Interactive chat for research and paper management.
 - **State**: Extends SharedState with user_query, retrieved_papers.
 
 ### Automator Subgraph
-- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), hybrid_store_node (save to Chroma + NetworkX), clean_node (prune).
+- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), hybrid_store_node (save to PostgreSQL + Neo4j), clean_node (prune).
 - **Purpose**: Background ingestion and classification.
 - **State**: Extends SharedState with recent_papers, classified_papers, graph_relationships.
 
@@ -25,7 +25,7 @@ The agent layer enables intelligent task delegation, with BranchAgent as the pri
 BranchAgent is the primary specialized agent type, enabling dynamic context branching for complex tasks.
 
 ### Overview
-BranchAgent is a LangGraph node/agent that dynamically explores multiple approaches to solve a task (e.g., different RAG strategies or prompt variants), evaluates results via LLM, and merges the best outcome into the main conversation context. It is the only specialized agent type currently; others may be added later.
+BranchAgent is an Orchestral AI node/agent that dynamically explores multiple approaches to solve a task (e.g., different RAG strategies or prompt variants), evaluates results via LLM, and merges the best outcome into the main conversation context. It is the only specialized agent type currently; others may be added later.
 
 ### Mechanism
 - **Trigger**: Activated by supervisor or subgraphs for ambiguous/complex queries (e.g., heuristic on query length or entropy).
@@ -50,35 +50,47 @@ graph TD
 
 ### Requirements
 - **Functional**: Explore 2-3 approaches; evaluate/merge reliably.
-- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval; use LangGraph checkpointer for persistence, interrupts for human-in-loop, streaming for real-time responses.
-- **Dependencies**: LangGraph (with checkpointer, interrupts, streaming), LLM integration.
+- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval; use Orchestral AI checkpointer for persistence, interrupts for human-in-loop, streaming for real-time responses.
+- **Dependencies**: Orchestral AI (with checkpointer, interrupts, streaming), LLM integration.
 
 ## State Sharing & Communication
-- **Shared State**: TypedDict with liked_embeddings, Chroma client, SQLite connection, NetworkX graph.
-- **Communication**: Command-based routing; state mutations.
-- **Persistence**: LangGraph checkpointer (MemorySaver) for graph state; Chroma/SQLite for long-term.
-- **Advanced LangGraph Features**: Interrupts for user interventions (e.g., confirm branches); streaming for real-time node outputs; tool integration for external APIs (e.g., SDKs as tools).
+- **Shared State**: TypedDict with liked_embeddings (list of vectors), PostgreSQL client, Neo4j connection, SQLite connection, user_id.
+- **Stateful Design**: Hybrid approach - stateful graphs with DB persistence for context-heavy tasks (CLI chat, Context Management).
+- **Communication Mechanisms**:
+  - Command-based routing via Orchestral AI Command for subgraph transitions
+  - State mutations via SharedState updates in supervisor and nodes
+  - Interrupts for human-in-loop interventions (e.g., confirm BranchAgent branches)
+  - Streaming for real-time node outputs and progress updates
+- **Persistence Layers**:
+  - Orchestral AI checkpointer (MemorySaver) for in-session graph state recovery
+  - PostgreSQL/Neo4j for long-term storage (load on startup for state restoration)
+- **Edge Case Handling**:
+  - Concurrent CLI/automator runs: Use threading locks or queue for thread safety
+  - Session isolation: User-based session IDs to separate contexts
 
 ## Hybrid Agent State Management
 ```python
 class HybridAgentState:
-    """State management across Chroma, SQLite, and NetworkX"""
+    """State management across PostgreSQL, Neo4j, and SQLite"""
     
     def __init__(self):
-        self.chroma_client = None
+        self.postgres_client = None
+        self.neo4j_connection = None
         self.sqlite_conn = None
-        self.graph = None
         
         self.current_query = None
-        self.chroma_results = []
+        self.postgres_results = []
         self.graph_results = []
         self.fused_results = []
         
     def update_graph_reference(self, paper_id, node_data):
-        """Maintain in-memory graph references"""
-        if self.graph is None:
-            self.graph = nx.DiGraph()
-        self.graph.add_node(paper_id, **node_data)
+        """Maintain graph references in Neo4j"""
+        if self.neo4j_connection is None:
+            self.neo4j_connection = get_neo4j_connection()
+        self.neo4j_connection.execute_query(
+            "MERGE (p:Paper {id: $id}) SET p += $data",
+            id=paper_id, data=node_data
+        )
 ```
 
 ### Multi-Database Supervisor Agent
@@ -86,11 +98,12 @@ class HybridAgentState:
 class HybridSupervisorAgent:
     """Supervisor agent coordinating hybrid operations"""
     
-    def __init__(self, chroma_path, sqlite_path):
+    def __init__(self, postgres_url, neo4j_uri, sqlite_path):
         self.state = HybridAgentState()
-        self.chroma = chromadb.PersistentClient(chroma_path)
+        self.postgres = create_postgres_connection(postgres_url)
+        self.neo4j = Neo4jConnection(neo4j_uri)
         self.sqlite = sqlite3.connect(sqlite_path)
-        self.query_router = HybridQueryRouter(self.chroma, self.sqlite)
+        self.query_router = HybridQueryRouter(self.postgres, self.neo4j)
         
     async def route_to_subgraph(self, state):
         """Route queries to appropriate subgraph"""
@@ -113,7 +126,7 @@ class HybridSupervisorAgent:
             routing['query'], routing['strategy']
         )
         
-        self.state.chroma_results = hybrid_results.get('chroma_results', [])
+        self.state.postgres_results = hybrid_results.get('postgres_results', [])
         self.state.graph_results = hybrid_results.get('graph_results', [])
         self.state.fused_results = hybrid_results.get('fused_results', [])
         
@@ -124,7 +137,7 @@ class HybridSupervisorAgent:
 ```
 
 ## Requirements & Roadmap
-- **Functional**: Route accurately to hybrid storage; BranchAgent explores effectively; in-memory graph consistency maintained.
+- **Functional**: Route accurately to hybrid storage; BranchAgent explores effectively; Neo4j graph consistency maintained.
 - **Non-Functional**: Low latency (<3s hybrid queries); testable operations.
 - **Roadmap**: Implement supervisor/subgraphs with hybrid coordination; add BranchAgent; test branching.
 

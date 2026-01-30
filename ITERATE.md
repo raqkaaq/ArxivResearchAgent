@@ -4,16 +4,23 @@ This document lists the key topics to discuss and iterate on before full impleme
 
 ## Topics to Iterate On
 - **BranchAgent Design**: Specialized agent for dynamic context branching (exploration via LLM, evaluation combining faithfulness/relevance, merging via Context Management). Triggered by query heuristics (e.g., length/entropy). Only agent type for now.
-1. **CLI Interface Design (TUI with Textual)**: Design the terminal UI pages (chat, papers, automator, metrics). Discuss layouts, navigation, user interactions (e.g., liking papers), and integration with LangGraph.
+1. **CLI Interface Design (TUI with Textual)**: Design the terminal UI pages (chat, papers, automator, metrics). Discuss layouts, navigation, user interactions (e.g., liking papers), and integration with Orchestral AI.
 
-2. **TUI Metrics Page**: Design real-time metrics display (e.g., DB stats, query rates) using logs. Ensure it's local and runtime-focused.
+ 2. **TUI Metrics Page**: Design real-time metrics display (e.g., DB stats, query rates) using logs. Ensure it's local and runtime-focused.
+     - **Completed**: PRD.md updated with detailed metrics dashboard specifications including DB statistics, query rates, storage usage, automator progress, and system health monitoring.
+     - **PRD Updated**: Metrics dashboard section added to TUI interface description with specific metric categories.
 
-3. **Agent Communication & State Sharing**: Define how multiagents (supervisor + subgraphs) share state (e.g., liked embeddings). Cover persistence, concurrency, and inter-session syncing.
-   - **Decision**: Keep stateful for context-heavy tasks (e.g., CLI chat, Context Management). Stateless could work for isolated RAG queries but loses history. Use hybrid: Stateful graphs with DB persistence.
-   - **Proposal**: Use LangGraph's TypedDict state with shared fields (e.g., liked_embeddings as list of vectors). Supervisor updates global state; subgraphs read/write via nodes. Persistence via LangGraph checkpointer (MemorySaver) for sessions; Chroma/SQLite for long-term (load on startup).
-   - **Communication**: Command-based routing; state mutations; interrupts for human-in-loop; streaming for real-time.
-   - **Edge Cases**: Concurrent CLI/automator runs—use locks or queue. Session isolation via user IDs.
-   - **Completed**: Discussed stateful vs. stateless; chose stateful with BranchAgent integration and LangGraph features.
+ 3. **Agent Communication & State Sharing**: Define how multiagents (supervisor + subgraphs) share state (e.g., liked embeddings). Cover persistence, concurrency, and inter-session syncing.
+     - **Decision**: Keep stateful for context-heavy tasks (e.g., CLI chat, Context Management). Stateless could work for isolated RAG queries but loses history. Use hybrid: Stateful graphs with DB persistence.
+     - **Proposal**: Use Orchestral AI's TypedDict state with shared fields (e.g., liked_embeddings as list of vectors). Supervisor updates global state; subgraphs read/write via nodes. Persistence via Orchestral AI checkpointer (MemorySaver) for sessions; PostgreSQL/Neo4j for long-term (load on startup).
+     - **Communication**: Command-based routing; state mutations; interrupts for human-in-loop; streaming for real-time.
+     - **Edge Cases**: Concurrent CLI/automator runs—use locks or queue. Session isolation via user IDs.
+     - **Completed**: Discussed stateful vs. stateless; chose stateful with BranchAgent integration and Orchestral AI features.
+     - **PRD Updated**: State sharing documented in AGENT_PRD.md with persistence layers and edge case handling.
+
+ 4. **TUI Interface Design (Textual)**: Design terminal UI pages (chat, papers, automator, metrics). Discuss layouts, navigation, user interactions (e.g., liking papers), and integration with Orchestral AI.
+     - **Completed**: PRD.md updated with TUI design details including four main pages (Chat, Papers, Automator, Metrics), keyboard navigation, and async updates.
+     - **PRD Updated**: TUI interface section expanded with page descriptions and metrics dashboard details.
 
 4. **Prompt Engineering**: Develop structured prompts for RAG (retrieval, grading, rewriting), Context Management (summarization, pruning), and agents (routing, classification). Include fine-tuning via user feedback loops.
 

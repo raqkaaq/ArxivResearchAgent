@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD): Arxiv Research Agent
 
 ## Overview
-The Arxiv Research Agent is a dynamic, multiagent AI system built with LangGraph for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, Chroma for embedding-based RAG retrieval, NetworkX for in-memory graph-based relationship analysis, SQLite for user feedback storage, and local file storage for papers.
+The Arxiv Research Agent is a dynamic, multiagent AI system built with Orchestral AI for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, PostgreSQL (with pgvector) for embedding-based RAG retrieval and heavy data storage, Neo4j for graph-based relationship analysis and RAG with analytics capabilities, SQLite for user feedback storage, and local file storage for papers.
 
 The agent intelligently identifies and prioritizes papers based on user preferences ("likes") and relevance, storing key analytics without overwhelming the system. All tasks are well-logged for auditing.
 
@@ -17,73 +17,84 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - Initiate on-demand research (search/fetch Arxiv).
   - Allow users to "like" papers, updating similarity baselines.
   - Generate conversational responses with compiled details (title, authors, abstract, etc.).
-  - **TUI Interface**: Modern terminal-based user interface with progressive result display, research analytics dashboard, and real-time system metrics.
-  - **Progressive Analytics Dashboard**: Real-time display of ingestion progress, citation network statistics, author collaboration metrics, and system health monitoring.
+  - **TUI Interface**: Modern terminal-based user interface with Textual, featuring:
+    - **Chat Page**: Interactive research queries with progressive result display and paper details
+    - **Papers Page**: Browse, search, and manage liked papers with "like" ratings
+    - **Automator Page**: Real-time ingestion progress, classification status, and network visualization
+    - **Metrics Page**: Real-time system monitoring (DB stats, query rates, storage usage)
+    - Navigation via keyboard shortcuts, async updates, and clear feedback
+   - **Progressive Analytics Dashboard**: Real-time display of ingestion progress, citation network statistics, author collaboration metrics, and system health monitoring.
+- **TUI Metrics Dashboard**: Real-time metrics display using logs and runtime data, including:
+      - Database statistics (PostgreSQL paper count, SQLite session count, Neo4j nodes/edges)
+      - Query rates and latency metrics (retrieval time, RAG generation time)
+      - Storage usage (papers/ directory size, log file sizes)
+      - Automator progress (papers processed, classification distribution)
+      - System health (LLM availability, API connectivity)
 - **User-Triggered Automator**:
-  - Pull recent Arxiv papers (e.g., last 24-48 hours).
-  - Embed papers and compare to user-liked baselines for similarity.
-  - Classify importance using LLM (1-10 score based on novelty, impact, relevance), with data from Semantic Scholar (citations/h-index) or Arxiv (metadata) for training.
-  - Store high-importance papers (embeddings in Chroma, metadata in SQLite, graph relationships in NetworkX, downloads in papers/ directory).
-  - Prune old/unimportant data to manage storage.
+   - Pull recent Arxiv papers (e.g., last 24-48 hours).
+   - Embed papers and compare to user-liked baselines for similarity.
+   - Classify importance using LLM (1-10 score based on novelty, impact, relevance), with data from Semantic Scholar (citations/h-index) or Arxiv (metadata) for training.
+   - Store high-importance papers (embeddings in PostgreSQL, metadata in SQLite, graph relationships in Neo4j, downloads in papers/ directory).
+   - Prune old/unimportant data to manage storage.
 - **Shared Infrastructure**:
-  - Vector DB (Chroma) for vector search and similarity matching.
-  - Graph DB (NetworkX) for in-memory citation networks and knowledge graph operations.
-  - SQLite for user feedback ("likes") and structured metadata.
-  - Paper Storage (papers/ directory) for selective PDF/source downloads.
-  - Logging (logs/ directory) with structured JSON logs for actions, errors, and metrics.
-  - Context Management: Adaptive compression for long conversations with dynamic token thresholds based on LLM. (See CONTEXT_PRD.md for detailed system design, including architecture diagrams and inspirations from modern papers.)
-  - LLM Config: Ollama for local inference; Gemini for API-based fallback/scalability.
+   - PostgreSQL (with pgvector) for vector search, similarity matching, and heavy data storage.
+   - Neo4j for citation networks, knowledge graph operations, graph-based RAG, and analytics.
+   - SQLite for user feedback ("likes") and structured metadata.
+   - Paper Storage (papers/ directory) for selective PDF/source downloads.
+   - Logging (logs/ directory) with structured JSON logs for actions, errors, and metrics.
+   - Context Management: Adaptive compression for long conversations with dynamic token thresholds based on LLM. (See CONTEXT_PRD.md for detailed system design, including architecture diagrams and inspirations from modern papers.)
+   - LLM Config: Ollama for local inference; Gemini for API-based fallback/scalability.
 - **Intelligence & Dynamics**:
-  - Similarity-based filtering: Use cosine similarity on embeddings (Chroma) and graph relationships (NetworkX) to find papers "similar to liked ones."
+   - Similarity-based filtering: Use cosine similarity on embeddings (PostgreSQL/pgvector) and graph relationships (Neo4j) to find papers "similar to liked ones."
   - Adaptive Classification: LLM evaluates papers for importance, considering user context.
   - Selective Downloads: Only download top-scoring papers to avoid storage bloat.
   - Error Handling: Retries for API failures, interrupts for config issues, detailed logging.
 
 ## Architecture
 - **Tech Stack**:
-  - LangGraph: For multiagent stateful graphs (supervisor + subgraphs).
-  - Arxiv SDK (arxiv.py): For searching, fetching metadata.
-  - Semantic Scholar SDK (external): For citations, h-index, paper counts, and downloading.
-  - Chroma: Vector database for embeddings and semantic similarity (in db/chroma/, shared with RAG).
-  - NetworkX: In-memory graph library for citation networks and knowledge graph operations.
-  - SQLite: User feedback storage for "likes" and preferences (in db/sqlite/).
-  - LangChain Ollama/Gemini: For LLM and embeddings.
-  - Python: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
+   - Orchestral AI: For multiagent orchestration with unified provider interface.
+   - Arxiv SDK (arxiv.py): For searching, fetching metadata.
+   - Semantic Scholar SDK (external): For citations, h-index, paper counts, and downloading.
+   - PostgreSQL with pgvector: Vector database for embeddings and semantic similarity (shared with RAG).
+   - Neo4j: Graph database for citation networks, knowledge graph operations, graph-based RAG, and analytics.
+   - SQLite: User feedback storage for "likes" and preferences (in db/sqlite/).
+   - Orchestral AI Ollama/Gemini: For LLM and embeddings via unified interface.
+   - Python: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
 - **Multiagent Structure**:
   - **Supervisor Agent**: Routes to CLI or Automator subgraphs based on input.
   - **CLI Subgraph**: Handles user interactions (nodes: input, RAG, research, response, like).
   - **Automator Subgraph**: Handles background ingestion (nodes: pull, embed, similarity, classify, store, clean).
 - **State Management**:
-  - SharedState: Chroma client, SQLite connection, liked embeddings, NetworkX graph.
-  - CLIState: User query, retrieved papers, hybrid response.
-  - AutomatorState: Recent papers, classified papers, relationship graphs.
+   - SharedState: PostgreSQL client, Neo4j connection, SQLite connection, liked embeddings.
+   - CLIState: User query, retrieved papers, hybrid response.
+   - AutomatorState: Recent papers, classified papers, relationship graphs.
 - **Data Flow**:
-  - CLI: Query → Embed → Hybrid Search (Chroma vectors + NetworkX graph) → Respond.
-  - Automator: Pull Arxiv → Store Chroma + Build NetworkX graph → Classify → Storage.
+   - CLI: Query → Embed → Hybrid Search (PostgreSQL vectors + Neo4j graph) → Respond.
+   - Automator: Pull Arxiv → Store PostgreSQL + Build Neo4j graph → Classify → Storage.
 - **Deployment**: Local Python scripts; CLI via command-line (e.g., `python main.py --chat` or `python main.py --automate`).
 
 ## Requirements
 - **Functional**:
-  - Search Arxiv with queries/ID lists.
-  - Fetch metadata (title, authors, summary, categories, links) or enriched data from Semantic Scholar (citations, h-index, paper counts).
-  - Download PDFs/sources selectively.
-  - Embed text for similarity search.
-  - Classify papers with LLM scores.
-  - Store and retrieve via hybrid storage (Chroma + NetworkX + SQLite) with in-memory graph consistency.
-  - Log all actions with timestamps/levels.
-  - User feedback via SQLite for "likes" to personalize recommendations.
+   - Search Arxiv with queries/ID lists.
+   - Fetch metadata (title, authors, summary, categories, links) or enriched data from Semantic Scholar (citations, h-index, paper counts).
+   - Download PDFs/sources selectively.
+   - Embed text for similarity search.
+   - Classify papers with LLM scores.
+   - Store and retrieve via hybrid storage (PostgreSQL + Neo4j + SQLite) with graph persistence.
+   - Log all actions with timestamps/levels.
+   - User feedback via SQLite for "likes" to personalize recommendations.
 - **Non-Functional**:
-  - Performance: Handle 100+ papers per run; hybrid RAG retrieval <3s; in-memory graph query <1s.
-  - Reliability: Retry on failures; graph consistency validation; log errors.
-  - Security: No secrets in code; use env vars for API keys.
-  - Usability: Simple CLI commands; clear responses; transparent hybrid query routing.
-  - Scalability: Prune Chroma collections and SQLite data; configurable limits (e.g., max papers=2000).
+   - Performance: Handle 100+ papers per run; hybrid RAG retrieval <3s; Neo4j graph query <1s.
+   - Reliability: Retry on failures; graph consistency validation; log errors.
+   - Security: No secrets in code; use env vars for API keys.
+   - Usability: Simple CLI commands; clear responses; transparent hybrid query routing.
+   - Scalability: Prune PostgreSQL tables and SQLite data; configurable limits (e.g., max papers=2000).
 - **Dependencies**:
-  - Python 3.9+.
-  - Packages: langgraph, langchain-ollama, langchain-google-genai, chromadb, networkx, sqlite3, arxiv, requests, tenacity, diskcache.
-  - External Services: Ollama, Docker (optional).
-  - Environment Configuration: .env for API keys (OLLAMA_BASE_URL, GEMINI_API_KEY).
-  - (See DATA_PRD.md for Semantic Scholar SDK integration details.)
+   - Python 3.9+.
+   - Packages: orchestral-ai, psycopg2-binary, neo4j, sqlite3, arxiv, requests, tenacity, diskcache, pgvector.
+   - External Services: PostgreSQL, Neo4j, Ollama, Docker (optional).
+   - Environment Configuration: .env for API keys (OLLAMA_BASE_URL, GEMINI_API_KEY, POSTGRES_URL, NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD).
+   - (See DATA_PRD.md for Semantic Scholar SDK integration details.)
 - **Assumptions**:
   - User has Ollama installed locally (via Docker or otherwise).
   - Server may not be always online (hence user-triggered automator).

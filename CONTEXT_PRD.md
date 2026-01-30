@@ -1,7 +1,7 @@
 # Context Management Product Requirements Document: Adaptive Context Compression for Arxiv Research Agent
 
 ## Overview
-This PRD details the Context Management system, a separate component for handling long conversation histories and fitting them within LLM context windows (e.g., Ollama's ~4k-8k tokens or Gemini's larger limits for consistency). It stores conversations in SQLite (structured logs) and Chroma (vectorized compressions), applying advanced compression techniques to preserve relevance while enabling efficient retrieval. The system interfaces with Ollama/Gemini APIs for summarization and can leverage Chroma for retrieving archived context.
+This PRD details the Context Management system, a separate component for handling long conversation histories and fitting them within LLM context windows (e.g., Ollama's ~4k-8k tokens or Gemini's larger limits for consistency). It stores conversations in SQLite (structured logs) and PostgreSQL with pgvector (vectorized compressions), applying advanced compression techniques to preserve relevance while enabling efficient retrieval. The system interfaces with Ollama/Gemini APIs for summarization and can leverage PostgreSQL for retrieving archived context.
 
 The Context Management ensures scalable, long-horizon interactions in the CLI chatbot and automator, preventing context overflow without losing critical history.
 
@@ -24,10 +24,10 @@ These papers provide empirical backing for compression that maintains performanc
 
 ## Core Architecture
 The Context Management is a modular system with:
-- **Storage Layer**: SQLite for relational conversation logs; Chroma for vectorized compressions.
+- **Storage Layer**: SQLite for relational conversation logs; PostgreSQL with pgvector for vectorized compressions.
 - **Compression Layer**: LLM-driven summarization and pruning.
-- **Retrieval Layer**: Query SQLite and Chroma for archived context; interface with Ollama/Gemini.
-- **Integration Layer**: LangGraph nodes for pre-LLM adjustments.
+- **Retrieval Layer**: Query SQLite and PostgreSQL for archived context; interface with Ollama/Gemini.
+- **Integration Layer**: Orchestral AI nodes for pre-LLM adjustments.
 
 Components integrate via APIs, with fallbacks for robustness.
 
@@ -36,7 +36,7 @@ graph TD
     A[User Interaction] --> B[Context Monitor]
     B --> C[Compression Engine]
     C --> D[SQLite Storage]
-    C --> E[Chroma Vectors]
+    C --> E[PostgreSQL Vectors]
     E --> F[RAG Retrieval - Optional]
     F --> G[LLM API - Ollama/Gemini]
     G --> H[Adjusted Context]
@@ -44,7 +44,7 @@ graph TD
 ```
 
 - **SQLite**: Stores full/raw conversation history.
-- **Chroma**: Stores compressed vectors for quick retrieval.
+- **PostgreSQL/pgvector**: Stores compressed vectors for quick retrieval.
 - **Compression Engine**: Applies advanced features (e.g., summarization).
 
 ## Runtime Flow
@@ -57,7 +57,7 @@ flowchart TD
     B --> C{Exceeds Threshold?}
     C -->|Yes| D[Summarize Old Messages - LLM]
     C -->|No| E[Prune Low-Relevance - Ranking]
-    D --> F[Store Compressed in SQLite and Chroma]
+    D --> F[Store Compressed in SQLite and PostgreSQL]
     E --> F
     F --> G[Reconstruct for Window]
     G --> H[Pass to LLM]
@@ -68,7 +68,7 @@ flowchart TD
 flowchart TD
     A[Query/Context Request] --> B[Check Window Fit]
     B --> C[Compress via Summarization]
-    C --> D[Vectorize & Store in Chroma]
+    C --> D[Vectorize & Store in PostgreSQL]
     D --> E[Retrieve via RAG - if needed]
     E --> F[Reconstruct Context]
     F --> G[LLM Generation]
@@ -79,30 +79,30 @@ flowchart TD
 - **Error Handling**: Fallback to sliding window if compression fails.
 
 ## Components and Features
-- **Storage**: SQLite for logs (sessions/messages tables); Chroma for compressed contexts.
+- **Storage**: SQLite for logs (sessions/messages tables); PostgreSQL for compressed contexts.
 - **Advanced Features**:
   - **Semantic Summarization**: LLM generates gists (UltraGist-style).
   - **Selective Pruning**: Rank by relevance, evict unimportant (ACON-style).
   - **KV Cache Compression**: Compress cached context (KVzip-style).
   - **Hierarchical Fitting**: Short-term in-window, long-term in SQLite.
   - **Reconstruction**: Rebuild from compressed data.
-- **API Interfacing**: LangChain calls Ollama/Gemini for compression; Chroma for vector queries.
-- **Integration**: Pre-LLM LangGraph node; uses SQLite and Chroma storage.
+- **API Interfacing**: Orchestral AI calls Ollama/Gemini for compression; PostgreSQL for vector queries.
+- **Integration**: Pre-LLM Orchestral AI node; uses SQLite and PostgreSQL storage.
 
 ## Requirements and Tradeoffs
 - **Functional**: Compress/fit histories with dynamic thresholds based on current LLM.
 - **Non-Functional**: Compression preserves 80% relevance; retrieval <1s.
-- **Dependencies**: sqlite3, chromadb, langchain, langchain-ollama.
-- **Tradeoffs**: Compression adds LLM calls (latency); SQLite + Chroma storage is simpler but requires coordination.
+- **Dependencies**: sqlite3, psycopg2-binary, pgvector, orchestral-ai.
+- **Tradeoffs**: Compression adds LLM calls (latency); SQLite + PostgreSQL storage is simpler but requires coordination.
 
 ## Integration with Arxiv Agent
 - **BranchAgent Integration**: Provides endpoints (`compress_chain`, `merge_into_chain`) for BranchAgent to compress/merge context chains post-branching. Handles chain persistence and retrieval for dynamic merging.
 - **CLI/Automator**: Pre-LLM nodes call compression for window fitting.
-- **RAG**: Can query Chroma separately for archived history.
+- **RAG**: Can query PostgreSQL separately for archived history.
 
 ## Implementation Roadmap
-1. Setup: Init SQLite and Chroma for storage.
-2. Core: Build compression engine with SQLite/Chroma storage.
+1. Setup: Init SQLite and PostgreSQL for storage.
+2. Core: Build compression engine with SQLite/PostgreSQL storage.
 3. Integration: Add to CLI/automator and BranchAgent.
 4. Testing: Evaluate on long chats and branching.
 5. Iteration: Optimize compression algorithms and performance.
@@ -133,20 +133,23 @@ CREATE TABLE IF NOT EXISTS context_references (
 ### Context Management Implementation
 ```python
 import sqlite3
-import chromadb
+import psycopg2
+from pgvector.psycopg2 import Vector
 import json
 from typing import List, Dict, Optional
 
 class ContextManager:
-    """Context manager using SQLite and Chroma"""
+    """Context manager using SQLite and PostgreSQL"""
     
-    def __init__(self, db_path: str, chroma_path: str):
+    def __init__(self, db_path: str, postgres_url: str):
         self.conn = sqlite3.connect(db_path)
-        self.chroma = chromadb.PersistentClient(chroma_path)
-        self.collection = self.chroma.get_or_create_collection("context_compressions")
+        self.pg_conn = psycopg2.connect(postgres_url)
+        self.pg_cursor = self.pg_conn.cursor()
+        self.pg_cursor.execute("CREATE TABLE IF NOT EXISTS context_compressions (id TEXT PRIMARY KEY, document TEXT, embedding vector(384))")
+        self.pg_conn.commit()
         
     async def compress_and_store(self, conversation_id: str, context_data: Dict):
-        """Compress and store context in SQLite and Chroma"""
+        """Compress and store context in SQLite and PostgreSQL"""
         compressed_summary = await self.llm_compress_context(context_data)
         context_vector = await self.embedding_model.embed(compressed_summary)
         
@@ -163,13 +166,13 @@ class ContextManager:
             json.dumps(context_data.get('metadata', {}))
         ))
         
-        self.collection.add(
-            documents=[compressed_summary],
-            embeddings=[context_vector],
-            ids=[conversation_id]
+        self.pg_cursor.execute(
+            "INSERT INTO context_compressions (id, document, embedding) VALUES (%s, %s, %s)",
+            (conversation_id, compressed_summary, context_vector)
         )
         
         self.conn.commit()
+        self.pg_conn.commit()
         
     async def retrieve_context(self, conversation_id: str, query_context: Optional[str] = None):
         """Retrieve context with optional semantic search"""
@@ -177,18 +180,21 @@ class ContextManager:
         
         if query_context:
             query_vector = self.embedding_model.embed(query_context)
-            results = self.collection.query(
-                query_embeddings=[query_vector],
-                n_results=5
+            self.pg_cursor.execute(
+                "SELECT id, document, embedding <=> %s AS distance FROM context_compressions ORDER BY distance LIMIT 5",
+                (query_vector,)
             )
-            ids = [r['id'] for r in results[0]]
+            results = self.pg_cursor.fetchall()
+            ids = [r[0] for r in results]
             
-            cursor.execute("""
-                SELECT compressed_context FROM conversations WHERE id IN ({})
-                ORDER BY CASE id {} END
-            """.format(','.join('?'*len(ids)), 
-               ' '.join(f'WHEN ? THEN {i}' for i in range(len(ids)))),
-               ids + ids)
+            if ids:
+                placeholders = ','.join('?' * len(ids))
+                cursor.execute(f"""
+                    SELECT compressed_context FROM conversations WHERE id IN ({placeholders})
+                    ORDER BY CASE id { ' '.join(f'WHEN ? THEN {i}' for i in range(len(ids))) } END
+                """, ids + ids)
+            else:
+                cursor.execute("SELECT compressed_context FROM conversations WHERE id = ? ORDER BY created_at DESC LIMIT 1", (conversation_id,))
         else:
             cursor.execute("""
                 SELECT compressed_context FROM conversations
