@@ -1,0 +1,6 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/minimax-m2.1-free",
+  "small_model": "opencode/minimax-m2.1-free"
+}
+

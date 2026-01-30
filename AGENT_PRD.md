@@ -12,12 +12,12 @@ The agent layer enables intelligent task delegation, with BranchAgent as the pri
 
 ## Subgraph Agents
 ### CLI Subgraph
-- **Nodes**: input_node (validate query), hybrid_rag_node (retrieve via hybrid PostgreSQL+Neo4j RAG), response_node (generate reply), like_node (update preferences).
+- **Nodes**: input_node (validate query), hybrid_rag_node (retrieve via hybrid Chroma+NetworkX RAG), response_node (generate reply), like_node (update preferences).
 - **Purpose**: Interactive chat for research and paper management.
 - **State**: Extends SharedState with user_query, retrieved_papers.
 
 ### Automator Subgraph
-- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), hybrid_store_node (save to PostgreSQL + Neo4j), clean_node (prune).
+- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), hybrid_store_node (save to Chroma + NetworkX), clean_node (prune).
 - **Purpose**: Background ingestion and classification.
 - **State**: Extends SharedState with recent_papers, classified_papers, graph_relationships.
 
@@ -54,52 +54,47 @@ graph TD
 - **Dependencies**: LangGraph (with checkpointer, interrupts, streaming), LLM integration.
 
 ## State Sharing & Communication
-- **Shared State**: TypedDict with liked_embeddings, cross_database_references, PostgreSQL connections, Neo4j sessions.
+- **Shared State**: TypedDict with liked_embeddings, Chroma client, SQLite connection, NetworkX graph.
 - **Communication**: Command-based routing; state mutations.
-- **Persistence**: LangGraph checkpointer (MemorySaver) for graph state; DBs for long-term.
+- **Persistence**: LangGraph checkpointer (MemorySaver) for graph state; Chroma/SQLite for long-term.
 - **Advanced LangGraph Features**: Interrupts for user interventions (e.g., confirm branches); streaming for real-time node outputs; tool integration for external APIs (e.g., SDKs as tools).
 
-## Cross-Database Agent Implementation
-### Hybrid Agent State Management
+## Hybrid Agent State Management
 ```python
 class HybridAgentState:
-    """State management across PostgreSQL and Neo4j databases"""
+    """State management across Chroma, SQLite, and NetworkX"""
     
     def __init__(self):
-        # PostgreSQL connections and Neo4j sessions
-        self.pg_pool = None
-        self.neo4j_driver = None
-        self.cross_references = {}
+        self.chroma_client = None
+        self.sqlite_conn = None
+        self.graph = None
         
-        # Agent state
         self.current_query = None
-        self.pg_results = []
-        self.neo4j_results = []
+        self.chroma_results = []
+        self.graph_results = []
         self.fused_results = []
         
-    def update_cross_references(self, pg_paper_id, neo4j_node_id):
-        """Maintain cross-database references"""
-        self.cross_references[pg_paper_id] = {
-            'neo4j_node_id': neo4j_node_id,
-            'last_sync': datetime.now()
-        }
+    def update_graph_reference(self, paper_id, node_data):
+        """Maintain in-memory graph references"""
+        if self.graph is None:
+            self.graph = nx.DiGraph()
+        self.graph.add_node(paper_id, **node_data)
+```
 
 ### Multi-Database Supervisor Agent
 ```python
 class HybridSupervisorAgent:
-    """Supervisor agent coordinating hybrid database operations"""
+    """Supervisor agent coordinating hybrid operations"""
     
-    def __init__(self, pg_pool, neo4j_driver):
+    def __init__(self, chroma_path, sqlite_path):
         self.state = HybridAgentState()
-        self.pg_pool = pg_pool
-        self.neo4j_driver = neo4j_driver
-        self.query_router = HybridQueryRouter(pg_pool, neo4j_driver)
+        self.chroma = chromadb.PersistentClient(chroma_path)
+        self.sqlite = sqlite3.connect(sqlite_path)
+        self.query_router = HybridQueryRouter(self.chroma, self.sqlite)
         
     async def route_to_subgraph(self, state):
-        """Route queries to appropriate subgraph with hybrid capabilities"""
+        """Route queries to appropriate subgraph"""
         query = state.get('current_query', '')
-        
-        # Determine routing based on query complexity
         routing = await self.query_router.analyze_and_route(query)
         
         if routing['subgraph'] == 'cli':
@@ -111,20 +106,17 @@ class HybridSupervisorAgent:
     
     async def route_to_cli_subgraph(self, state, routing):
         """Route to CLI with hybrid RAG capabilities"""
-        # Update state with routing information
         self.state.current_query = routing['query']
         self.state.routing_strategy = routing['strategy']
         
-        # Execute hybrid query
         hybrid_results = await self.query_router.execute_hybrid_query(
             routing['query'], routing['strategy']
         )
         
-        self.state.pg_results = hybrid_results.get('postgresql_results', [])
-        self.state.neo4j_results = hybrid_results.get('neo4j_results', [])
+        self.state.chroma_results = hybrid_results.get('chroma_results', [])
+        self.state.graph_results = hybrid_results.get('graph_results', [])
         self.state.fused_results = hybrid_results.get('fused_results', [])
         
-        # Return next node action
         return {
             'next': 'hybrid_rag_node',
             'state': self.state
@@ -132,8 +124,8 @@ class HybridSupervisorAgent:
 ```
 
 ## Requirements & Roadmap
-- **Functional**: Route accurately to hybrid databases; BranchAgent explores effectively; cross-database consistency maintained.
-- **Non-Functional**: Low latency (<3s hybrid queries); testable cross-database operations.
-- **Roadmap**: Implement supervisor/subgraphs with hybrid coordination; add BranchAgent; test branching; implement sync services.
+- **Functional**: Route accurately to hybrid storage; BranchAgent explores effectively; in-memory graph consistency maintained.
+- **Non-Functional**: Low latency (<3s hybrid queries); testable operations.
+- **Roadmap**: Implement supervisor/subgraphs with hybrid coordination; add BranchAgent; test branching.
 
 This PRD focuses on BranchAgent as the key specialized type. Reference PRD.md for overall integration.

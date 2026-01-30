@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD): Arxiv Research Agent
 
 ## Overview
-The Arxiv Research Agent is a dynamic, multiagent AI system built with LangGraph for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, PostgreSQL + pgvector for embedding-based RAG retrieval, Neo4j for graph-based relationship analysis, and local file storage for papers.
+The Arxiv Research Agent is a dynamic, multiagent AI system built with LangGraph for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, Chroma for embedding-based RAG retrieval, NetworkX for in-memory graph-based relationship analysis, SQLite for user feedback storage, and local file storage for papers.
 
 The agent intelligently identifies and prioritizes papers based on user preferences ("likes") and relevance, storing key analytics without overwhelming the system. All tasks are well-logged for auditing.
 
@@ -23,17 +23,18 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - Pull recent Arxiv papers (e.g., last 24-48 hours).
   - Embed papers and compare to user-liked baselines for similarity.
   - Classify importance using LLM (1-10 score based on novelty, impact, relevance), with data from Semantic Scholar (citations/h-index) or Arxiv (metadata) for training.
-  - Store high-importance papers (metadata in PostgreSQL, embeddings in PostgreSQL, relationships in Neo4j, downloads in papers/ directory).
+  - Store high-importance papers (embeddings in Chroma, metadata in SQLite, graph relationships in NetworkX, downloads in papers/ directory).
   - Prune old/unimportant data to manage storage.
 - **Shared Infrastructure**:
-  - Vector & Metadata DB (PostgreSQL + pgvector) for vector search, similarity matching, and structured paper details.
-  - Graph DB (Neo4j) for citation networks, author relationships, and knowledge graph operations.
+  - Vector DB (Chroma) for vector search and similarity matching.
+  - Graph DB (NetworkX) for in-memory citation networks and knowledge graph operations.
+  - SQLite for user feedback ("likes") and structured metadata.
   - Paper Storage (papers/ directory) for selective PDF/source downloads.
   - Logging (logs/ directory) with structured JSON logs for actions, errors, and metrics.
   - Context Management: Adaptive compression for long conversations with dynamic token thresholds based on LLM. (See CONTEXT_PRD.md for detailed system design, including architecture diagrams and inspirations from modern papers.)
   - LLM Config: Ollama for local inference; Gemini for API-based fallback/scalability.
 - **Intelligence & Dynamics**:
-  - Similarity-based filtering: Use cosine similarity on embeddings (PostgreSQL pgvector) and graph relationships (Neo4j) to find papers "similar to liked ones."
+  - Similarity-based filtering: Use cosine similarity on embeddings (Chroma) and graph relationships (NetworkX) to find papers "similar to liked ones."
   - Adaptive Classification: LLM evaluates papers for importance, considering user context.
   - Selective Downloads: Only download top-scoring papers to avoid storage bloat.
   - Error Handling: Retries for API failures, interrupts for config issues, detailed logging.
@@ -43,8 +44,9 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - LangGraph: For multiagent stateful graphs (supervisor + subgraphs).
   - Arxiv SDK (arxiv.py): For searching, fetching metadata.
   - Semantic Scholar SDK (external): For citations, h-index, paper counts, and downloading.
-  - PostgreSQL + pgvector: Vector database and structured metadata for embeddings and paper details (in db/postgres/, shared with RAG and Context Management).
-  - Neo4j: Graph database for citation networks, author relationships, and knowledge graph operations (in db/neo4j/, shared with RAG and Agent coordination).
+  - Chroma: Vector database for embeddings and semantic similarity (in db/chroma/, shared with RAG).
+  - NetworkX: In-memory graph library for citation networks and knowledge graph operations.
+  - SQLite: User feedback storage for "likes" and preferences (in db/sqlite/).
   - LangChain Ollama/Gemini: For LLM and embeddings.
   - Python: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
 - **Multiagent Structure**:
@@ -52,12 +54,12 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - **CLI Subgraph**: Handles user interactions (nodes: input, RAG, research, response, like).
   - **Automator Subgraph**: Handles background ingestion (nodes: pull, embed, similarity, classify, store, clean).
 - **State Management**:
-  - SharedState: PostgreSQL/Neo4j clients, liked embeddings, cross-database references.
+  - SharedState: Chroma client, SQLite connection, liked embeddings, NetworkX graph.
   - CLIState: User query, retrieved papers, hybrid response.
   - AutomatorState: Recent papers, classified papers, relationship graphs.
 - **Data Flow**:
-  - CLI: Query → Embed → Hybrid Search (PostgreSQL vectors + Neo4j relationships) → Respond.
-  - Automator: Pull Arxiv → Store PostgreSQL + Build Neo4j → Classify → Hybrid Storage.
+  - CLI: Query → Embed → Hybrid Search (Chroma vectors + NetworkX graph) → Respond.
+  - Automator: Pull Arxiv → Store Chroma + Build NetworkX graph → Classify → Storage.
 - **Deployment**: Local Python scripts; CLI via command-line (e.g., `python main.py --chat` or `python main.py --automate`).
 
 ## Requirements
@@ -67,22 +69,20 @@ The agent intelligently identifies and prioritizes papers based on user preferen
   - Download PDFs/sources selectively.
   - Embed text for similarity search.
   - Classify papers with LLM scores.
-  - Store and retrieve via hybrid database (PostgreSQL + Neo4j) with cross-system consistency.
+  - Store and retrieve via hybrid storage (Chroma + NetworkX + SQLite) with in-memory graph consistency.
   - Log all actions with timestamps/levels.
-  - Execute cross-database transactions with rollback capabilities.
+  - User feedback via SQLite for "likes" to personalize recommendations.
 - **Non-Functional**:
-  - Performance: Handle 100+ papers per run; hybrid RAG retrieval <3s; cross-database query latency <1s.
-  - Reliability: Retry on failures; cross-database consistency validation; log errors.
-  - Security: No secrets in code; use env vars for API keys; secure cross-database connections.
+  - Performance: Handle 100+ papers per run; hybrid RAG retrieval <3s; in-memory graph query <1s.
+  - Reliability: Retry on failures; graph consistency validation; log errors.
+  - Security: No secrets in code; use env vars for API keys.
   - Usability: Simple CLI commands; clear responses; transparent hybrid query routing.
-  - Scalability: Prune PostgreSQL and Neo4j datasets; configurable limits (e.g., max papers=2000).
-  - Data Consistency: Atomic operations across both databases with conflict resolution.
+  - Scalability: Prune Chroma collections and SQLite data; configurable limits (e.g., max papers=2000).
 - **Dependencies**:
   - Python 3.9+.
-  - Packages: langgraph, langchain-ollama, langchain-google-genai, langchain-postgres, langchain-neo4j, psycopg2-binary, neo4j-driver, pgvector, arxiv, requests, tenacity, diskcache, redis (for cross-database caching).
-  - External Services: PostgreSQL, Neo4j, Docker, Ollama.
-  - Environment Configuration: Hybrid system requires coordinated config management.
-  - Development Tools: Docker Compose, connection poolers, health monitoring.
+  - Packages: langgraph, langchain-ollama, langchain-google-genai, chromadb, networkx, sqlite3, arxiv, requests, tenacity, diskcache.
+  - External Services: Ollama, Docker (optional).
+  - Environment Configuration: .env for API keys (OLLAMA_BASE_URL, GEMINI_API_KEY).
   - (See DATA_PRD.md for Semantic Scholar SDK integration details.)
 - **Assumptions**:
   - User has Ollama installed locally (via Docker or otherwise).
@@ -111,17 +111,6 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 - API Limits: Respect delays; batch requests.
 - Storage Growth: Auto-prune old data.
 - User Errors: Validate inputs; provide help commands.
-
-## Cross-Database Architecture
-- **Transaction Management**: Atomic operations across PostgreSQL and Neo4j with rollback capabilities. Event-driven synchronization for eventual consistency patterns.
-- **Query Federation**: Intelligent routing and result fusion across PostgreSQL vectors and Neo4j graphs with deduplication and advanced ranking.
-- **Data Synchronization**: Background services maintaining consistency with conflict resolution and performance optimization.
-- **Error Handling**: Cascading rollback procedures and partial failure recovery across both database systems.
-
-## Implementation Framework
-- **Database Coordination**: Connection pooling, failover procedures, and circuit breaker patterns for hybrid reliability.
-- **Migration Strategy**: Coordinated backup/restore and performance validation during transition periods.
-- **Performance Monitoring**: Cross-database metrics, health checking, and automated scaling recommendations.
 
 ## Timeline & Milestones
 - Week 1: Finalize PRD (this doc) and cross-database architecture details.
