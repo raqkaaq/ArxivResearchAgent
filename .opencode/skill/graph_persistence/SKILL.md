@@ -1,43 +1,44 @@
 # Graph Persistence Skill
 
-This skill handles Orchestral AI checkpointer setup for state persistence and resumption in graph-based agents.
+This skill handles Orchestral AI context/state persistence for agent execution and resumption.
+
+## Documentation
+For detailed architecture and patterns, reference:
+- [Context Management](../../../../docs/orchestral_ai/context.md)
+- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
 
 ## Features
-- MemorySaver checkpointer integration for Orchestral AI graphs.
-- State loading/saving utilities for persistent graph execution.
-- Interrupt support for human-in-loop interventions.
-- DB-backed persistence options for long-term state management.
+- Context persistence for state survival across interruptions.
+- Session resumption capabilities.
+- Integration with SQLite and PostgreSQL for hybrid state storage.
 
 ## Usage
-Load for reliable graph execution with Orchestral AI. Ensures state survives interruptions and supports session resumption.
+Load for reliable agent execution with Orchestral AI. Ensures state survives interruptions and supports session resumption.
 
 ## Implementation
-- Based on Orchestral AI persistence patterns for agent graphs.
-- Includes config for PostgreSQL-backed and memory-based persistence.
+- Based on Orchestral AI persistence patterns for agents.
+- Includes config for database-backed persistence.
 
 ## Code Examples
 From Orchestral AI persistence patterns:
 
 ```python
-from orchestral_ai import Graph, Checkpointers
-from orchestral_ai.nodes import AgentNode
+from orchestral import Agent
+from orchestral.llm import Claude
+from orchestral.context import Context
 
-# Define graph with checkpointer
-checkpointer = Checkpointers.memory()
-
-graph = Graph(
-    nodes=[
-        AgentNode(name="researcher", ...),
-    ],
-    checkpointer=checkpointer
+# Create agent with context persistence
+agent = Agent(
+    llm=Claude(),
+    system_prompt="You are a research agent..."
 )
 
-# Run with thread_id for persistence
-config = {"configurable": {"thread_id": "session_1"}}
-result = graph.invoke(initial_state, config)
+# Save context for later resumption
+context = agent.context
+context.save_json("session_state.json")
 
-# Resume later
-graph.invoke(follow_up, config)
+# Load context to resume
+resumed_context = Context.load_json("session_state.json")
 ```
 
 ## Integration with Project

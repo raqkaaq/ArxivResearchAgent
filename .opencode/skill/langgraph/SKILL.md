@@ -2,6 +2,15 @@
 
 This skill provides documentation and best practices for building agents with Orchestral AI, based on up-to-date design principles for multiagent orchestration.
 
+## Documentation
+Reference these docs when building Orchestral AI agents:
+- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
+- [API Reference](../../../../docs/orchestral_ai/api.md)
+- [Examples](../../../../docs/orchestral_ai/examples.md)
+- [Context Management](../../../../docs/orchestral_ai/context.md)
+- [Tools Guide](../../../../docs/orchestral_ai/tools.md)
+- [Providers Guide](../../../../docs/orchestral_ai/providers.md)
+
 ## Loading the Skill
 
 To use this skill, load it in your opencode session as needed for agent development with Orchestral AI.
@@ -12,13 +21,13 @@ Follow these steps to build robust, stateful agents with Orchestral AI:
 
 ### Step 1: Map Workflow to Discrete Nodes
 
-Identify distinct steps in your process. Each step becomes a node (an AgentNode for LLM tasks, or function nodes for data/actions). Sketch connections between nodes.
+Identify distinct steps in your process. Each step becomes a node. Sketch connections between nodes.
 
 Node types:
 - **AgentNodes**: For understanding, analyzing, generating text, or reasoning with LLMs.
 - **Data Nodes**: For retrieving information from external sources (Arxiv, PostgreSQL, Neo4j).
 - **Action Nodes**: For performing external actions (downloads, storage).
-- **User Input Nodes**: For human intervention with interrupts.
+- **User Input Nodes**: For human intervention.
 
 ### Step 2: Identify What Each Node Needs
 
@@ -53,40 +62,36 @@ class AgentState(TypedDict):
 
 ### Step 4: Build Your Nodes
 
-Implement each step as a function taking state and returning Command updates.
+Implement each step as a function taking state and returning dict updates.
 
 Handle errors appropriately:
 - Transient errors (e.g., network): Retry with policy.
 - LLM-recoverable errors: Store error and loop back.
-- User-fixable errors: Pause with interrupt().
 - Unexpected errors: Let them bubble up.
 
 Example node:
 ```python
-from orchestral_ai import Command
-from typing import Literal
+from typing import TypedDict, Literal
 
-def classify_node(state: AgentState) -> Command[Literal["next_node"]]:
+def classify_node(state: AgentState):
     # Do work, handle errors
     result = classify_paper(state["raw_data"])
-    return Command(update={"classification": result}, goto="next_node")
+    return {"classification": result, "next": "next_node"}
 ```
 
 ### Step 5: Wire It Together
 
-Connect nodes in a graph with minimal edges. Nodes handle routing via Command.
-
-Compile with checkpointer for persistence if using interrupts.
+Connect nodes in a sequence. Nodes handle routing via state updates.
 
 Example:
 ```python
-from orchestral_ai import Graph, AgentNode
+from orchestral import Agent
+from orchestral.llm import Claude
 
-workflow = Graph(nodes=[
-    AgentNode(name="node1", node1_function),
-    AgentNode(name="node2", node2_function),
-])
-app = workflow.compile(checkpointer=MemorySaver())
+agent = Agent(
+    llm=Claude(),
+    system_prompt="You are a research agent..."
+)
 ```
 
 ### Step 6: Define Subgraphs
@@ -111,17 +116,16 @@ Automator Subgraph nodes:
 
 - Break into discrete steps for resilience and observability.
 - State stores raw data; nodes format as needed.
-- Nodes are functions returning updates and routing decisions via Command.
-- Errors are part of the flow: retries, loops, interrupts.
-- Human input is first-class; use interrupt() first in nodes.
-- Graph structure emerges from node routing.
+- Nodes are functions returning updates and routing decisions.
+- Errors are part of the flow: retries, loops.
+- Human input is supported via approval hooks.
 - Use BranchAgent for complex queries requiring multiple approaches.
 
 ### Advanced Considerations
 
 - Node granularity: Smaller nodes for more checkpoints and isolation.
-- Performance: Async durability for frequent checkpoints without slowdown.
-- Use checkpointer for session persistence across restarts.
+- Performance: Use streaming for real-time feedback.
 - Coordinate with PostgreSQL and Neo4j for hybrid storage.
+- Reference docs/orchestral_ai for detailed patterns.
 
 Use these principles for building complex, stateful multiagent systems with Orchestral AI.

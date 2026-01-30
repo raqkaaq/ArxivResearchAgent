@@ -1,15 +1,21 @@
 # Context Manager Skill
 
-This skill provides context compression and management utilities for long conversations in Orchestral AI graphs, integrating with dynamic thresholds and interrupts for adaptive context handling.
+This skill provides context compression and management utilities for long conversations in Orchestral AI agents, integrating with dynamic thresholds for adaptive context handling.
+
+## Documentation
+For detailed architecture and patterns, reference:
+- [Context Management](../../../../docs/orchestral_ai/context.md)
+- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
+- [Messages Format](../../../../docs/orchestral_ai/messages.md)
 
 ## Features
 - Dynamic token threshold calculation based on current LLM (Ollama/Gemini).
-- Summarization and pruning nodes for long conversations.
+- Summarization and pruning for long conversations.
 - Endpoints for compression/merging (compress_chain, merge_into_chain).
 - Integration with SQLite for conversation logs and PostgreSQL for vectorized compressions.
 
 ## Usage
-Load for context handling in Orchestral AI agent graphs. Supports real-time streaming and persistence for long-horizon interactions.
+Load for context handling in Orchestral AI agents. Supports persistence for long-horizon interactions.
 
 ## Implementation
 - Based on CONTEXT_PRD.md design for adaptive context compression.
@@ -20,7 +26,7 @@ Load for context handling in Orchestral AI agent graphs. Supports real-time stre
 From Context Management design:
 
 ```python
-from orchestral_ai import Graph, AgentNode
+from orchestral.context import Context
 from typing import TypedDict, List
 
 # Context state
@@ -35,7 +41,7 @@ def calculate_threshold(state: ContextState) -> int:
     reserve_ratio = 0.75
     return int(llm_context_window * reserve_ratio)
 
-# Compress node
+# Compress context
 def compress_context(state: ContextState):
     threshold = calculate_threshold(state)
     messages = state["messages"]
@@ -47,14 +53,6 @@ def compress_context(state: ContextState):
         return {"summary": summary, "messages": messages[-5:], "compression_needed": False}
     
     return {"compression_needed": False}
-
-# Build graph
-graph = Graph(
-    nodes=[
-        AgentNode(name="context_monitor", monitor_context),
-        AgentNode(name="compress", compress_context),
-    ]
-)
 ```
 
 ## Integration with BranchAgent

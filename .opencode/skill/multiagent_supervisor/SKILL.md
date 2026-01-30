@@ -2,6 +2,12 @@
 
 This skill provides a reusable Orchestral AI-based supervisor agent for orchestrating multiple subgraphs (e.g., CLI and Automator). It handles routing based on input, shared state management, and Command-based transitions between subgraphs.
 
+## Documentation
+For detailed architecture and patterns, reference:
+- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
+- [API Reference](../../../../docs/orchestral_ai/api.md)
+- [Examples](../../../../docs/orchestral_ai/examples.md)
+
 ## Features
 - Supervisor node with conditional routing (e.g., to CLI or Automator subgraphs).
 - Shared state initialization and updates across subgraphs.
@@ -20,7 +26,8 @@ Load this skill in opencode sessions for multiagent Orchestral AI setups. Use in
 From Supervisor Agent design:
 
 ```python
-from orchestral_ai import Graph, AgentNode, Command
+from orchestral import Agent
+from orchestral.llm import Claude
 from typing import TypedDict, List, Literal
 
 # Define shared state
@@ -32,24 +39,21 @@ class SharedState(TypedDict):
     sqlite_conn: object
 
 # Supervisor node
-def supervisor(state: SharedState) -> Command[Literal["cli_subgraph", "automator_subgraph"]]:
+def supervisor(state: SharedState):
     input_text = state["input"].lower()
     
     if "chat" in input_text or "research" in input_text:
-        return Command(goto="cli_subgraph")
+        return {"next": "cli_subgraph"}
     elif "automate" in input_text or "ingest" in input_text:
-        return Command(goto="automator_subgraph")
+        return {"next": "automator_subgraph"}
     else:
         # Default to CLI for natural language queries
-        return Command(goto="cli_subgraph")
+        return {"next": "cli_subgraph"}
 
-# Build graph with supervisor
-graph = Graph(
-    nodes=[
-        AgentNode(name="supervisor", supervisor),
-        AgentNode(name="cli_subgraph", ...),
-        AgentNode(name="automator_subgraph", ...),
-    ]
+# Build agent with supervisor
+agent = Agent(
+    llm=Claude(),
+    system_prompt="You are a research agent supervisor..."
 )
 ```
 
