@@ -12,14 +12,14 @@ The agent layer enables intelligent task delegation, with BranchAgent as the pri
 
 ## Subgraph Agents
 ### CLI Subgraph
-- **Nodes**: input_node (validate query), rag_node (retrieve via RAG), response_node (generate reply), like_node (update preferences).
+- **Nodes**: input_node (validate query), hybrid_rag_node (retrieve via hybrid PostgreSQL+Neo4j RAG), response_node (generate reply), like_node (update preferences).
 - **Purpose**: Interactive chat for research and paper management.
 - **State**: Extends SharedState with user_query, retrieved_papers.
 
 ### Automator Subgraph
-- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), store_node (save to DB), clean_node (prune).
+- **Nodes**: pull_node (fetch Arxiv papers), embed_node (generate vectors), similarity_node (compare to liked), classify_node (importance score), hybrid_store_node (save to PostgreSQL + Neo4j), clean_node (prune).
 - **Purpose**: Background ingestion and classification.
-- **State**: Extends SharedState with recent_papers, classified_papers.
+- **State**: Extends SharedState with recent_papers, classified_papers, graph_relationships.
 
 ## BranchAgent (Specialized Agent Type)
 BranchAgent is the primary specialized agent type, enabling dynamic context branching for complex tasks.
@@ -54,14 +54,86 @@ graph TD
 - **Dependencies**: LangGraph (with checkpointer, interrupts, streaming), LLM integration.
 
 ## State Sharing & Communication
-- **Shared State**: TypedDict with liked_embeddings, logs.
+- **Shared State**: TypedDict with liked_embeddings, cross_database_references, PostgreSQL connections, Neo4j sessions.
 - **Communication**: Command-based routing; state mutations.
 - **Persistence**: LangGraph checkpointer (MemorySaver) for graph state; DBs for long-term.
 - **Advanced LangGraph Features**: Interrupts for user interventions (e.g., confirm branches); streaming for real-time node outputs; tool integration for external APIs (e.g., SDKs as tools).
 
+## Cross-Database Agent Implementation
+### Hybrid Agent State Management
+```python
+class HybridAgentState:
+    """State management across PostgreSQL and Neo4j databases"""
+    
+    def __init__(self):
+        # PostgreSQL connections and Neo4j sessions
+        self.pg_pool = None
+        self.neo4j_driver = None
+        self.cross_references = {}
+        
+        # Agent state
+        self.current_query = None
+        self.pg_results = []
+        self.neo4j_results = []
+        self.fused_results = []
+        
+    def update_cross_references(self, pg_paper_id, neo4j_node_id):
+        """Maintain cross-database references"""
+        self.cross_references[pg_paper_id] = {
+            'neo4j_node_id': neo4j_node_id,
+            'last_sync': datetime.now()
+        }
+
+### Multi-Database Supervisor Agent
+```python
+class HybridSupervisorAgent:
+    """Supervisor agent coordinating hybrid database operations"""
+    
+    def __init__(self, pg_pool, neo4j_driver):
+        self.state = HybridAgentState()
+        self.pg_pool = pg_pool
+        self.neo4j_driver = neo4j_driver
+        self.query_router = HybridQueryRouter(pg_pool, neo4j_driver)
+        
+    async def route_to_subgraph(self, state):
+        """Route queries to appropriate subgraph with hybrid capabilities"""
+        query = state.get('current_query', '')
+        
+        # Determine routing based on query complexity
+        routing = await self.query_router.analyze_and_route(query)
+        
+        if routing['subgraph'] == 'cli':
+            return await self.route_to_cli_subgraph(state, routing)
+        elif routing['subgraph'] == 'automator':
+            return await self.route_to_automator_subgraph(state, routing)
+        else:
+            raise ValueError(f"Unknown subgraph: {routing['subgraph']}")
+    
+    async def route_to_cli_subgraph(self, state, routing):
+        """Route to CLI with hybrid RAG capabilities"""
+        # Update state with routing information
+        self.state.current_query = routing['query']
+        self.state.routing_strategy = routing['strategy']
+        
+        # Execute hybrid query
+        hybrid_results = await self.query_router.execute_hybrid_query(
+            routing['query'], routing['strategy']
+        )
+        
+        self.state.pg_results = hybrid_results.get('postgresql_results', [])
+        self.state.neo4j_results = hybrid_results.get('neo4j_results', [])
+        self.state.fused_results = hybrid_results.get('fused_results', [])
+        
+        # Return next node action
+        return {
+            'next': 'hybrid_rag_node',
+            'state': self.state
+        }
+```
+
 ## Requirements & Roadmap
-- **Functional**: Route accurately; BranchAgent explores effectively.
-- **Non-Functional**: Low latency; testable.
-- **Roadmap**: Implement supervisor/subgraphs; add BranchAgent; test branching.
+- **Functional**: Route accurately to hybrid databases; BranchAgent explores effectively; cross-database consistency maintained.
+- **Non-Functional**: Low latency (<3s hybrid queries); testable cross-database operations.
+- **Roadmap**: Implement supervisor/subgraphs with hybrid coordination; add BranchAgent; test branching; implement sync services.
 
 This PRD focuses on BranchAgent as the key specialized type. Reference PRD.md for overall integration.

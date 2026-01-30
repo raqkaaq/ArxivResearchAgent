@@ -1,7 +1,7 @@
 # RAG Product Requirements Document: Graph-Enhanced Agentic RAG for Arxiv Research Agent
 
 ## Overview
-This PRD details the "Graph-Enhanced Agentic RAG" system, a sophisticated hybrid retrieval-augmented generation framework inspired by modern Arxiv papers. It combines vector-based retrieval (via Chroma), knowledge graph reasoning (for structured relations like citations), and hierarchical multi-agent orchestration (via LangGraph) to enable deep, faithful reasoning for Arxiv paper queries. The system addresses limitations of vanilla RAG (e.g., surface-level similarity) by modeling domain-specific relations and enabling agentic adaptation.
+This PRD details the "Hybrid Retrieval Augmented Generation" system, a sophisticated framework combining vector-based retrieval (via PostgreSQL + pgvector), knowledge graph reasoning (for structured relations like citations via Neo4j), and hierarchical multi-agent orchestration (via LangGraph) to enable deep, faithful reasoning for Arxiv paper queries. The system addresses limitations of vanilla RAG (e.g., surface-level similarity) by modeling domain-specific relations and enabling agentic adaptation.
 
 The RAG works in two modes:
 - **Pre-Agent**: A standalone chain for quick, direct retrieval and generation.
@@ -24,8 +24,8 @@ These papers provide empirical backing for graph-agent hybrids, outperforming ve
 
 ## Core Architecture
 The RAG is a hybrid system with three pillars:
-- **Vector Retrieval**: Chroma DB for embedding-based similarity (using Ollama/Gemini).
-- **Knowledge Graph**: Lightweight graph (NetworkX) for entity-relation modeling (papers, authors, citations).
+- **Vector Retrieval**: PostgreSQL + pgvector for embedding-based similarity (using Ollama/Gemini).
+- **Knowledge Graph**: Neo4j for graph modeling and relationship traversal (papers, authors, citations).
 - **Agentic Orchestration**: LangGraph for hierarchical agents (supervisor + sub-agents) handling reasoning and routing.
 
 Components integrate via APIs, with fallbacks for robustness.
@@ -108,23 +108,147 @@ flowchart TD
 ## Requirements and Tradeoffs
 - **Functional**: Retrieve Arxiv papers via vectors/graphs; generate faithful answers; classify/ingest via agents.
 - **Non-Functional**: Scalability (1000+ papers); latency (<5s for retrieval); robustness (handle noisy metadata).
-- **Dependencies**: langchain_chroma, networkx, langgraph, langchain_ollama.
+- **Dependencies**: langchain_postgres, langchain_neo4j, psycopg2-binary, neo4j-driver, pgvector, langgraph, langchain_ollama.
 - **Tradeoffs**:
   - Graph adds depth but complexity/setup time; use NetworkX for simplicity.
   - Agents improve reasoning but increase latency; limit to complex queries.
   - Vector-only fallback if graph sparse.
 
 ## Integration with Arxiv Agent
-- **CLI**: Pre-agent for "research X" (direct answer). Agent tool: In rag_node, call RAG graph if query needs retrieval.
+- **CLI**: Pre-agent for "research X" (direct answer). Agent tool: In hybrid_rag_node, call RAG graph if query needs retrieval.
 - **Automator**: Agent tool in similarity_node (retrieve similar to liked embeddings for ingestion).
-- **Ingestion**: On new papers, embed abstracts; add to Chroma with metadata.
-- **Context Management**: RAG's Chroma can be queried separately for retrieving compressed conversation history (separation of concerns). See CONTEXT_PRD.md for details.
+- **Ingestion**: On new papers, embed abstracts; add to PostgreSQL with metadata; build Neo4j relationships.
+- **Context Management**: RAG's PostgreSQL can be queried separately for retrieving compressed conversation history (separation of concerns). See CONTEXT_PRD.md for details.
+- **Cross-Database Coordination**: Query federation services handle routing and result fusion; sync services maintain consistency between PostgreSQL and Neo4j data.
 
 ## Implementation Roadmap
-1. Setup: Init Chroma, NetworkX, Ollama.
-2. Core: Build graph and agents.
-3. Integration: Plug into CLI/automator.
-4. Testing: Evaluate on Arxiv queries.
-5. Iteration: Add multimodal if needed.
+1. Setup: Init PostgreSQL + pgvector, Neo4j, Ollama with cross-database coordination.
+2. Core: Build hybrid query federation, sync services, and graph agents.
+3. Integration: Plug into CLI/automator with cross-database state management.
+4. Testing: Evaluate hybrid RAG queries and Neo4j relationship traversals on Arxiv data.
+5. Iteration: Optimize performance and add advanced fusion algorithms with progressive analytics dashboard and user interaction data integration.
+
+## Cross-Database Architecture Implementation
+### Hybrid Query Federation Framework
+```python
+class HybridQueryFederator:
+    """Coordinates queries across PostgreSQL and Neo4j with intelligent routing"""
+    
+    def __init__(self, pg_pool, neo4j_driver):
+        self.pg_router = PostgreSQLQueryRouter(pg_pool)
+        self.neo4j_router = Neo4jQueryRouter(neo4j_driver)
+        self.fusion_engine = ResultFusionEngine()
+        self.cache = HybridCache()  # Redis for cross-database caching
+        
+    async def execute_query(self, query):
+        # Route query based on complexity analysis
+        routing_decision = await self.analyze_query_routing(query)
+        
+        if routing_decision['strategy'] == 'hybrid_parallel':
+            # Execute both databases in parallel
+            pg_task = self.pg_router.vector_search(query, routing_decision['pg_params'])
+            neo4j_task = self.neo4j_router.relationship_search(query, routing_decision['neo4j_params'])
+            
+            pg_results, neo4j_results = await asyncio.gather(pg_task, neo4j_task)
+            
+            # Fuse results with deduplication and ranking
+            fused_results = await self.fusion_engine.fuse_with_cross_reference(
+                pg_results, neo4j_results, query
+            )
+            
+            return fused_results
+        else:
+            # Route to optimal single database
+            if routing_decision['strategy'] == 'postgresql_primary':
+                return await self.pg_router.complex_search(query, routing_decision['pg_params'])
+            elif routing_decision['strategy'] == 'neo4j_primary':
+                return await self.neo4j_router.graph_traversal(query, routing_decision['neo4j_params'])
+```
+
+### Data Synchronization Services
+```python
+class CrossDatabaseSyncManager:
+    """Maintains consistency between PostgreSQL and Neo4j"""
+    
+    def __init__(self, pg_pool, neo4j_driver):
+        self.pg_pool = pg_pool
+        self.neo4j_driver = neo4j_driver
+        self.sync_queue = asyncio.Queue()
+        self.conflict_resolver = ConflictResolver()
+        
+    async def sync_paper_relationships(self, paper_id):
+        """Sync paper data from PostgreSQL to Neo4j"""
+        # Get paper data from PostgreSQL
+        paper_data = await self.pg_pool.get_paper_with_relationships(paper_id)
+        
+        # Create Neo4j relationships
+        async with self.neo4j_driver.session() as session:
+            # Create/update paper node
+            await session.run("""
+                MERGE (p:Paper {arxiv_id: $arxiv_id})
+                SET p.title = $title, p.abstract = $abstract
+                """, arxiv_id=paper_data['arxiv_id'],
+                    title=paper_data['title'],
+                    abstract=paper_data['abstract'])
+            
+            # Create citation relationships
+            for citation_id in paper_data.get('citations', []):
+                await session.run("""
+                    MATCH (p:Paper {arxiv_id: $arxiv_id}),
+                          (cited:Paper {arxiv_id: $cited_id})
+                    MERGE (p)-[:CITES]->(cited)
+                    """, arxiv_id=paper_data['arxiv_id'],
+                        cited_id=citation_id)
+            
+            # Create author relationships
+            for i, author in enumerate(paper_data.get('authors', [])):
+                await session.run("""
+                    MERGE (a:Author {name: $name})
+                    MERGE (p:Paper {arxiv_id: $arxiv_id})
+                    MERGE (a)-[:AUTHORED {position: $position}]->(p)
+                    """, name=author['name'],
+                        arxiv_id=paper_data['arxiv_id'],
+                        position=i+1)
+        
+        # Update sync status in PostgreSQL
+        await self.pg_pool.update_sync_status(paper_id, 'synced')
+```
+
+### Performance Optimization Layer
+```python
+class HybridPerformanceOptimizer:
+    """Optimizes performance across hybrid database system"""
+    
+    def __init__(self):
+        self.query_cache = {}  # LRU cache for frequent queries
+        self.performance_metrics = PerformanceMetrics()
+        
+    async def optimize_query_execution(self, query):
+        # Check cache first
+        if query in self.query_cache:
+            return self.query_cache[query]
+        
+        # Analyze query pattern for optimization
+        query complexity = self.analyze_query_complexity(query)
+        
+        # Choose optimal execution strategy
+        if complexity['cache_friendly']:
+            return await self.cached_execution(query)
+        else:
+            return await self.fresh_execution(query)
+        
+    async def batch_optimize_database_operations(self, operations):
+        # Batch operations for better performance
+        # Group operations by type and database
+        pg_batches = self.group_postgres_operations(operations)
+        neo4j_batches = self.group_neo4j_operations(operations)
+        
+        # Execute batches in parallel where possible
+        await asyncio.gather(
+            self.execute_postgres_batch(pg_batches),
+            self.execute_neo4j_batch(neo4j_batches)
+        )
+```
+
 
 This RAG elevates the agent with paper-inspired sophistication. Reference PRD.md for overall system integration.
