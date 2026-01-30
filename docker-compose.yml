@@ -1,0 +1,79 @@
+services:
+  neo4j:
+    image: neo4j:latest
+    volumes:
+      - ./data/neo4j/:/data/
+      - ./neo4j/plugins:/plugins
+      - ./data/neo4j/conf:/var/lib/neo4j/conf
+    container_name: arxiv-neo4j
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    env_file:
+      - .env
+    environment:
+      - NEO4J_PLUGINS=["apoc"]
+      - APOC_EXPORT_FILE_ENABLED=true
+      - APOC_IMPORT_FILE_ENABLED=true
+      - APOC_TRIGGER_ENABLED=true
+      - APOC_SCHEMA_ENABLED=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - neo4j-network
+
+  ollama-server:
+    image: ollama/ollama:latest
+    container_name: ollama-server-arxiv
+    ports:
+      - "11435:11434"
+    volumes:
+      - ${OLLAMA_PATH}/ollama_data:/root/.ollama
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    restart: unless-stopped
+    networks:
+      - neo4j-network
+
+  ollama-webui:
+    image: ghcr.io/ollama-webui/ollama-webui:main
+    container_name: ollama-webui-arxiv
+    restart: unless-stopped
+    environment:
+      - OLLAMA_BASE_URL=http://ollama-server:11434
+    volumes:
+      - ${OLLAMA_PATH}/webui:/app/backend/data
+    ports:
+      - "3011:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - neo4j-network
+
+  postgres:
+    image: pgvector/pgvector:pg16-bookworm
+    container_name: arxiv-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-arxiv}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    networks:
+      - neo4j-network
+
+networks:
+  neo4j-network:
+    driver: bridge
+
+volumes:
+  neo4j-data:
+  postgres-data:

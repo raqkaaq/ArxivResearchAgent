@@ -8,6 +8,8 @@ __pycache__/
 .opencode/dist/
 .ralph
 
+# neo4j
+neo4j/
 
 # C extensions
 *.so
