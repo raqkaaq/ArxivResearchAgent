@@ -139,13 +139,55 @@ import json
 from typing import List, Dict, Optional
 
 class ContextManager:
-    """Context manager using SQLite and PostgreSQL"""
+    """Context manager using SQLite and PostgreSQL with message-by-message storage"""
     
     def __init__(self, db_path: str, postgres_url: str):
         self.conn = sqlite3.connect(db_path)
         self.pg_conn = psycopg2.connect(postgres_url)
         self.pg_cursor = self.pg_conn.cursor()
         self.pg_cursor.execute("CREATE TABLE IF NOT EXISTS context_compressions (id TEXT PRIMARY KEY, document TEXT, embedding vector(384))")
+        self.pg_conn.commit()
+        
+        # Initialize conversation partitions for date-based partitioning
+        self._init_conversation_partitions()
+        
+    def _init_conversation_partitions(self):
+        """Create date-based partitions for conversations"""
+        self.pg_cursor.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                context_type TEXT DEFAULT 'chat',
+                full_context TEXT,
+                compressed_context TEXT,
+                metadata TEXT
+            ) PARTITION BY RANGE (created_at)
+        """)
+        
+        # Create monthly partitions
+        for year in [2024, 2025]:
+            for month in range(1, 13):
+                partition_name = f"conversations_{year}_{month:02d}"
+                start_date = f"('{year}-{month:02d}-01')"
+                end_date = f"('{year}-{month + 1 if month < 12 else 1:02d}-01')" if month < 12 else "DEFAULT"
+                
+                try:
+                    if month < 12:
+                        self.pg_cursor.execute(f"""
+                            CREATE TABLE IF NOT EXISTS {partition_name} 
+                            PARTITION OF conversations 
+                            FOR VALUES FROM {start_date} TO {end_date}
+                        """)
+                    else:
+                        self.pg_cursor.execute(f"""
+                            CREATE TABLE IF NOT EXISTS {partition_name} 
+                            PARTITION OF conversations 
+                            FOR VALUES FROM {start_date}
+                        """)
+                except Exception:
+                    pass  # Partition may already exist
+                
         self.pg_conn.commit()
         
     async def compress_and_store(self, conversation_id: str, context_data: Dict):

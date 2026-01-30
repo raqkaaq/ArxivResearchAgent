@@ -58,4 +58,44 @@ To create an effective SDK, focus on these approaches, drawing from API best pra
 4. Testing: Validate with sample data; test graph consistency; performance testing under load.
 5. Performance Optimization: Implement caching strategies; graph query optimization.
 
+## HuggingFace Dataset Seeding
+
+### Overview
+The system uses HuggingFace datasets as the initial data source for seeding the research database with approximately 2M papers. This provides a comprehensive foundation before integrating live Arxiv API updates.
+
+### Implementation
+```python
+# HuggingFace loader for initial seeding
+class HuggingFaceLoader:
+    """Efficient dataset loading for initial paper seeding"""
+    
+    def __init__(self, dataset_name: str = "papers-with-abstracts"):
+        self.dataset_name = dataset_name
+        self.batch_size = 1000
+        
+    async def load_and_process(self, processor: PaperProcessor):
+        """Load papers in batches and process for storage"""
+        from datasets import load_dataset
+        dataset = load_dataset(self.dataset_name, split="train")
+        
+        for batch in dataset.iter(batch_size=self.batch_size):
+            processed_papers = []
+            for paper in batch:
+                processed_papers.append(processor.clean(paper))
+            
+            await batch_importer.bulk_insert(processed_papers)
+```
+
+### Performance Targets for Seeding
+- **Bulk Import**: <5 minutes for 2M papers
+- **Paper Insert**: <10ms per batch
+- **Import Success Rate**: >99%
+
+### Integration Points
+- Outputs processed papers to `data_ingestion/paper_processor.py`
+- Feeds into `database/postgres_setup.py` for partitioned storage
+- Generates initial embeddings via `embeddings/embedding_manager.py`
+
+## Semantic Scholar SDK Integration
+
 This SDK will enable powerful data collection for the classification engine and Neo4j relationship graphs. Reference PRD.md for overall system integration.

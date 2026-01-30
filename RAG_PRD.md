@@ -127,4 +127,53 @@ flowchart TD
 4. Testing: Evaluate hybrid RAG queries and Neo4j relationship traversals on Arxiv data.
 5. Iteration: Optimize performance and add advanced fusion algorithms.
 
+## TUI Integration for RAG Results
+
+### Research Explorer Interface
+The RAG system integrates with the TUI Research Explorer for interactive paper discovery:
+
+```python
+# TUI research explorer for RAG results
+class ResearchExplorer:
+    """Interactive paper discovery through TUI"""
+    
+    def __init__(self, rag_system: HybridRAG):
+        self.rag = rag_system
+        self.results_per_page = 10
+        
+    async def search_and_display(self, query: str):
+        """Search via RAG and display progressively"""
+        results = await self.rag.hybrid_search(query)
+        
+        for i, paper in enumerate(results[:50]):
+            self.display_paper_details(paper, page=i // self.results_per_page + 1)
+            
+    def display_paper_details(self, paper: dict, page: int):
+        """Show paper with citations, authors, relevance score"""
+        # Display from Neo4j graph data
+        citations = self.rag.neo4j.get_citations(paper['id'])
+        authors = self.rag.neo4j.get_authors(paper['id'])
+        
+        self.tui.add_panel(f"Page {page}: {paper['title']}")
+        self.tui.add_panel(f"Authors: {', '.join(authors)}")
+        self.tui.add_panel(f"Citations: {len(citations)}")
+        self.tui.add_panel(f"Relevance: {paper['score']:.2f}")
+```
+
+### Network Visualization
+The RAG system provides citation network data for the TUI Network Visualizer:
+
+```python
+# Network visualization integration
+class NetworkVisualizer:
+    """Citation network display from RAG graph data"""
+    
+    def __init__(self, neo4j_connection):
+        self.neo4j = neo4j_connection
+        
+    def get_network_for_paper(self, paper_id: str, depth: int = 2):
+        """Get citation network up to specified depth"""
+        return self.neo4j.traverse_network(paper_id, max_depth=depth)
+```
+
 This RAG elevates the agent with paper-inspired sophistication. Reference PRD.md for overall system integration.
