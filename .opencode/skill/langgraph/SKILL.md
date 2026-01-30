@@ -1,23 +1,25 @@
-# Orchestral AI Skill
+# LangGraph Skill
 
-This skill provides documentation and best practices for building agents with Orchestral AI, based on up-to-date design principles for multiagent orchestration.
+This skill provides documentation and best practices for building agents with LangGraph, based on up-to-date design principles for graph-based agent orchestration.
 
 ## Documentation
-Reference these docs when building Orchestral AI agents:
-- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
-- [API Reference](../../../../docs/orchestral_ai/api.md)
-- [Examples](../../../../docs/orchestral_ai/examples.md)
-- [Context Management](../../../../docs/orchestral_ai/context.md)
-- [Tools Guide](../../../../docs/orchestral_ai/tools.md)
-- [Providers Guide](../../../../docs/orchestral_ai/providers.md)
+
+Reference these docs when building LangGraph agents:
+- [Architecture Overview](../../../../docs/langgraph/architecture.md)
+- [API Reference](../../../../docs/langgraph/api.md)
+- [Examples](../../../../docs/langgraph/examples.md)
+- [State Management](../../../../docs/langgraph/state.md)
+- [Nodes and Edges](../../../../docs/langgraph/nodes_edges.md)
+- [Tools Guide](../../../../docs/langgraph/tools.md)
+- [Providers Guide](../../../../docs/langgraph/providers.md)
 
 ## Loading the Skill
 
-To use this skill, load it in your opencode session as needed for agent development with Orchestral AI.
+To use this skill, load it in your opencode session as needed for agent development with LangGraph.
 
-## Up-to-Date Orchestral AI Design Principles
+## Up-to-Date LangGraph Design Principles
 
-Follow these steps to build robust, stateful agents with Orchestral AI:
+Follow these steps to build robust, stateful agents with LangGraph:
 
 ### Step 1: Map Workflow to Discrete Nodes
 
@@ -71,12 +73,12 @@ Handle errors appropriately:
 
 Example node:
 ```python
-from typing import TypedDict, Literal
+from typing import TypedDict
 
 def classify_node(state: AgentState):
     # Do work, handle errors
     result = classify_paper(state["raw_data"])
-    return {"classification": result, "next": "next_node"}
+    return {"classification": result}
 ```
 
 ### Step 5: Wire It Together
@@ -85,13 +87,30 @@ Connect nodes in a sequence. Nodes handle routing via state updates.
 
 Example:
 ```python
-from orchestral import Agent
-from orchestral.llm import Claude
+from typing import TypedDict
+from langgraph.graph import StateGraph, END, START
+from langchain_openai import ChatOpenAI
 
-agent = Agent(
-    llm=Claude(),
-    system_prompt="You are a research agent..."
-)
+class ResearchState(TypedDict):
+    query: str
+    papers: list
+    result: str | None
+
+llm = ChatOpenAI(model="gpt-4o")
+
+def search_node(state: ResearchState):
+    papers = search_arxiv(state["query"])
+    return {"papers": papers}
+
+def respond_node(state: ResearchState):
+    return {"result": f"Found {len(state['papers'])} papers"}
+
+graph = StateGraph(ResearchState)
+graph.add_node("search", search_node)
+graph.add_node("respond", respond_node)
+graph.set_entry_point("search")
+graph.add_edge("search", "respond")
+graph.add_edge("respond", END)
 ```
 
 ### Step 6: Define Subgraphs
@@ -118,7 +137,7 @@ Automator Subgraph nodes:
 - State stores raw data; nodes format as needed.
 - Nodes are functions returning updates and routing decisions.
 - Errors are part of the flow: retries, loops.
-- Human input is supported via approval hooks.
+- Human input is supported via breakpoints.
 - Use BranchAgent for complex queries requiring multiple approaches.
 
 ### Advanced Considerations
@@ -126,6 +145,6 @@ Automator Subgraph nodes:
 - Node granularity: Smaller nodes for more checkpoints and isolation.
 - Performance: Use streaming for real-time feedback.
 - Coordinate with PostgreSQL and Neo4j for hybrid storage.
-- Reference docs/orchestral_ai for detailed patterns.
+- Reference docs/langgraph for detailed patterns.
 
-Use these principles for building complex, stateful multiagent systems with Orchestral AI.
+Use these principles for building complex, stateful multiagent systems with LangGraph.

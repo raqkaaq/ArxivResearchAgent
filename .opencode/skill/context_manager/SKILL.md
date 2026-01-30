@@ -1,12 +1,12 @@
 # Context Manager Skill
 
-This skill provides context compression and management utilities for long conversations in Orchestral AI agents, integrating with dynamic thresholds for adaptive context handling.
+This skill provides context compression and management utilities for long conversations in LangGraph agents, integrating with dynamic thresholds for adaptive context handling.
 
 ## Documentation
 For detailed architecture and patterns, reference:
-- [Context Management](../../../../docs/orchestral_ai/context.md)
-- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
-- [Messages Format](../../../../docs/orchestral_ai/messages.md)
+- [State Management](../../../../docs/langgraph/state.md)
+- [Architecture Overview](../../../../docs/langgraph/architecture.md)
+- [Messages Format](../../../../docs/langgraph/messages.md)
 
 ## Features
 - Dynamic token threshold calculation based on current LLM (Ollama/Gemini).
@@ -15,23 +15,25 @@ For detailed architecture and patterns, reference:
 - Integration with SQLite for conversation logs and PostgreSQL for vectorized compressions.
 
 ## Usage
-Load for context handling in Orchestral AI agents. Supports persistence for long-horizon interactions.
+Load for context handling in LangGraph agents. Supports persistence for long-horizon interactions.
 
 ## Implementation
-- Based on CONTEXT_PRD.md design for adaptive context compression.
-- Uses LLM-driven summarization (UltraGist-style) and selective pruning (ACON-style).
-- Hierarchical storage: short-term in-window, long-term in SQLite/PostgreSQL.
+Based on CONTEXT_PRD.md design for adaptive context compression.
+Uses LLM-driven summarization (UltraGist-style) and selective pruning (ACON-style).
+Hierarchical storage: short-term in checkpoint, long-term in SQLite/PostgreSQL.
 
 ## Code Examples
 From Context Management design:
 
 ```python
-from orchestral.context import Context
-from typing import TypedDict, List
+from typing import TypedDict, List, Annotated
+from langgraph.graph import StateGraph, add_messages
+from langchain_core.messages import BaseMessage
+from langgraph.checkpoint.memory import MemorySaver
 
-# Context state
+# Context state with message accumulation
 class ContextState(TypedDict):
-    messages: List[dict]
+    messages: Annotated[List[BaseMessage], add_messages]
     summary: str
     compression_needed: bool
 
@@ -41,7 +43,7 @@ def calculate_threshold(state: ContextState) -> int:
     reserve_ratio = 0.75
     return int(llm_context_window * reserve_ratio)
 
-# Compress context
+# Compress context node
 def compress_context(state: ContextState):
     threshold = calculate_threshold(state)
     messages = state["messages"]
@@ -53,6 +55,22 @@ def compress_context(state: ContextState):
         return {"summary": summary, "messages": messages[-5:], "compression_needed": False}
     
     return {"compression_needed": False}
+
+# Graph with compression
+graph = StateGraph(ContextState)
+graph.add_node("compress", compress_context)
+graph.set_entry_point("compress")
+graph.add_edge("compress", END)
+
+# Compile with checkpointer
+app = graph.compile(checkpointer=MemorySaver())
+
+# Usage
+result = app.invoke({
+    "messages": [...],
+    "summary": "",
+    "compression_needed": False
+})
 ```
 
 ## Integration with BranchAgent

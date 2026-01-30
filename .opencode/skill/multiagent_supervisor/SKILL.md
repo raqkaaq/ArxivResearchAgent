@@ -1,12 +1,13 @@
 # Multiagent Supervisor Skill
 
-This skill provides a reusable Orchestral AI-based supervisor agent for orchestrating multiple subgraphs (e.g., CLI and Automator). It handles routing based on input, shared state management, and Command-based transitions between subgraphs.
+This skill provides a reusable LangGraph-based supervisor agent for orchestrating multiple subgraphs (e.g., CLI and Automator). It handles routing based on input, shared state management, and conditional transitions between subgraphs.
 
 ## Documentation
 For detailed architecture and patterns, reference:
-- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
-- [API Reference](../../../../docs/orchestral_ai/api.md)
-- [Examples](../../../../docs/orchestral_ai/examples.md)
+- [Architecture Overview](../../../../docs/langgraph/architecture.md)
+- [API Reference](../../../../docs/langgraph/api.md)
+- [Examples](../../../../docs/langgraph/examples.md)
+- [State Management](../../../../docs/langgraph/state.md)
 
 ## Features
 - Supervisor node with conditional routing (e.g., to CLI or Automator subgraphs).
@@ -15,20 +16,20 @@ For detailed architecture and patterns, reference:
 - Hybrid query routing for PostgreSQL + Neo4j operations.
 
 ## Usage
-Load this skill in opencode sessions for multiagent Orchestral AI setups. Use in agent construction for routing logic between CLI chatbot and automator subgraphs.
+Load this skill in opencode sessions for multiagent LangGraph setups. Use in agent construction for routing logic between CLI chatbot and automator subgraphs.
 
 ## Implementation
-- Based on AGENT_PRD.md supervisor design for Orchestral AI.
-- Includes example code for TypedDict state and Command routing.
-- Coordinates with BranchAgent for complex query handling.
+Based on AGENT_PRD.md supervisor design for LangGraph.
+Includes example code for TypedDict state and conditional routing.
+Coordinates with BranchAgent for complex query handling.
 
 ## Code Examples
 From Supervisor Agent design:
 
 ```python
-from orchestral import Agent
-from orchestral.llm import Claude
 from typing import TypedDict, List, Literal
+from langgraph.graph import StateGraph, END, START
+from langchain_openai import ChatOpenAI
 
 # Define shared state
 class SharedState(TypedDict):
@@ -38,7 +39,7 @@ class SharedState(TypedDict):
     neo4j_connection: object
     sqlite_conn: object
 
-# Supervisor node
+# Supervisor node with conditional routing
 def supervisor(state: SharedState):
     input_text = state["input"].lower()
     
@@ -50,10 +51,18 @@ def supervisor(state: SharedState):
         # Default to CLI for natural language queries
         return {"next": "cli_subgraph"}
 
-# Build agent with supervisor
-agent = Agent(
-    llm=Claude(),
-    system_prompt="You are a research agent supervisor..."
+# Build supervisor graph
+graph = StateGraph(SharedState)
+graph.add_node("supervisor", supervisor)
+graph.set_entry_point("supervisor")
+graph.add_conditional_edges(
+    "supervisor",
+    lambda s: s.get("next", "end"),
+    {
+        "cli_subgraph": "cli_entry",
+        "automator_subgraph": "automator_entry",
+        "END": END
+    }
 )
 ```
 

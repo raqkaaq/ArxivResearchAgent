@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD): Arxiv Research Agent
 
 ## Overview
-The Arxiv Research Agent is a dynamic, multiagent AI system built with Orchestral AI for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, PostgreSQL (with pgvector) for embedding-based RAG retrieval and heavy data storage, Neo4j for graph-based relationship analysis and RAG with analytics capabilities, SQLite for user feedback storage, and local file storage for papers.
+The Arxiv Research Agent is a dynamic, multiagent AI system built with **LangGraph** for researching, downloading, and compiling important details from Arxiv publications. It consists of two main components: a user-interactive CLI chatbot for querying and managing research, and a user-triggered automator for proactive ingestion and classification of recent papers. The system uses Ollama (primary) or Gemini (configurable fallback) for LLM tasks, PostgreSQL (with pgvector) for embedding-based RAG retrieval and heavy data storage, Neo4j for graph-based relationship analysis and RAG with analytics capabilities, SQLite for user feedback storage, and local file storage for papers.
 
 The agent intelligently identifies and prioritizes papers based on user preferences ("likes") and relevance, storing key analytics without overwhelming the system. All tasks are well-logged for auditing.
 
@@ -52,22 +52,23 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 
 ## Architecture
 - **Tech Stack**:
-   - Orchestral AI: For multiagent orchestration with unified provider interface.
-   - Arxiv SDK (arxiv.py): For searching, fetching metadata.
-   - Semantic Scholar SDK (external): For citations, h-index, paper counts, and downloading.
-   - PostgreSQL with pgvector: Vector database for embeddings and semantic similarity (shared with RAG).
-   - Neo4j: Graph database for citation networks, knowledge graph operations, graph-based RAG, and analytics.
-   - SQLite: User feedback storage for "likes" and preferences (in db/sqlite/).
-   - Orchestral AI Ollama/Gemini: For LLM and embeddings via unified interface.
-   - Python: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
+   - **LangGraph**: For multiagent orchestration with graph-based state management.
+   - **Arxiv SDK** (arxiv.py): For searching, fetching metadata.
+   - **Semantic Scholar SDK** (external): For citations, h-index, paper counts, and downloading.
+   - **PostgreSQL with pgvector**: Vector database for embeddings and semantic similarity (shared with RAG).
+   - **Neo4j**: Graph database for citation networks, knowledge graph operations, graph-based RAG, and analytics.
+   - **SQLite**: User feedback storage for "likes" and preferences (in db/sqlite/).
+   - **LangChain Community**: For LLM integration, tools, and utilities.
+   - **Python**: Core language (version dictated by conda env). (See RAG_PRD.md and CONTEXT_PRD.md for RAG and Context-specific components.)
 - **Multiagent Structure**:
-  - **Supervisor Agent**: Routes to CLI or Automator subgraphs based on input.
-  - **CLI Subgraph**: Handles user interactions (nodes: input, RAG, research, response, like).
-  - **Automator Subgraph**: Handles background ingestion (nodes: pull, embed, similarity, classify, store, clean).
+  - **Research Agent**: Main agent with tools for CLI interactions and automator operations.
+  - **CLI Tools**: Handle user interactions (search_arxiv, fetch_metadata, store_paper, like_paper, get_liked_papers).
+  - **Automator Tools**: Handle background ingestion (pull_recent_papers, embed_paper, classify_importance, store_paper, clean_old_papers).
 - **State Management**:
-   - SharedState: PostgreSQL client, Neo4j connection, SQLite connection, liked embeddings.
-   - CLIState: User query, retrieved papers, hybrid response.
-   - AutomatorState: Recent papers, classified papers, relationship graphs.
+   - **StateGraph**: LangGraph's StateGraph manages conversation history and state via TypedDict.
+   - **Checkpointer**: SQLite-based checkpointing for state persistence across sessions.
+   - **Shared State**: Database connections and user preferences passed via state schema.
+   - **Persistence**: State saved/loaded via LangGraph checkpointer.
 - **Data Flow**:
    - CLI: Query → Embed → Hybrid Search (PostgreSQL vectors + Neo4j graph) → Respond.
    - Automator: Pull Arxiv → Store PostgreSQL + Build Neo4j graph → Classify → Storage.
@@ -90,8 +91,8 @@ The agent intelligently identifies and prioritizes papers based on user preferen
    - Usability: Simple CLI commands; clear responses; transparent hybrid query routing.
    - Scalability: Prune PostgreSQL tables and SQLite data; configurable limits (e.g., max papers=2000).
 - **Dependencies**:
-   - Python 3.9+.
-   - Packages: orchestral-ai, psycopg2-binary, neo4j, sqlite3, arxiv, requests, tenacity, diskcache, pgvector.
+   - Python 3.11+.
+   - Packages: langgraph, langchain-openai, langchain-anthropic, psycopg2-binary, neo4j, sqlite3, arxiv, requests, tenacity, diskcache, pgvector.
    - External Services: PostgreSQL, Neo4j, Ollama, Docker (optional).
    - Environment Configuration: .env for API keys (OLLAMA_BASE_URL, GEMINI_API_KEY, POSTGRES_URL, NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD).
    - (See DATA_PRD.md for Semantic Scholar SDK integration details.)
@@ -134,20 +135,19 @@ The agent intelligently identifies and prioritizes papers based on user preferen
 
 ### Phase 1: Foundation (Weeks 1-2)
 ```python
-# Critical path: HuggingFace import → PostgreSQL processing → Vector generation
+# Critical path: LangGraph import → PostgreSQL processing → Vector generation
 arxiv_research_system/
-├── data_ingestion/
-│   ├── huggingface_loader.py      # Efficient dataset loading
-│   ├── paper_processor.py          # Data cleaning and formatting
-│   └── batch_importer.py           # Partitioned bulk inserts
+├── agents/
+│   ├── research_graph.py       # LangGraph StateGraph for research workflow
+│   ├── automator_graph.py      # LangGraph StateGraph for ingestion
+│   └── shared_state.py         # TypedDict state schema definitions
+├── database/
+│   ├── postgres_setup.py       # PostgreSQL initialization with pgvector
+│   ├── neo4j_setup.py          # Neo4j graph schema
+│   └── schemas.py              # Table definitions
 ├── embeddings/
-│   ├── ollama_embeddings.py       # Local model for initial setup
-│   ├── openai_embeddings.py         # Fallback for better quality
-│   └── embedding_manager.py          # Multi-strategy coordination
-└── database/
-    ├── postgres_setup.py             # Multi-partition initialization
-    ├── migrations/                    # Schema evolution management
-    └── schemas.py                     # Table definitions
+│   ├── ollama_embeddings.py    # Local model for embeddings
+│   └── embedding_manager.py    # Multi-strategy coordination
 ```
 
 ### Phase 2: Live Data Integration (Weeks 3-4)
@@ -155,13 +155,13 @@ arxiv_research_system/
 # Real-time updates and enrichment
 arxiv_research_system/
 ├── live_data_integration/
-│   ├── arxiv_streamer.py          # Continuous paper monitoring
-│   ├── semantic_scholar_enricher.py # Author metadata enhancement
-│   ├── data_fusion.py              # Merge multiple data sources
-│   └── update_coordinator.py       # Conflict resolution
+│   ├── arxiv_streamer.py       # Continuous paper monitoring
+│   ├── semantic_scholar_enricher.py  # Author metadata enhancement
+│   ├── data_fusion.py           # Merge multiple data sources
+│   └── update_coordinator.py    # Conflict resolution
 ├── agents/
-│   ├── live_ingestion_agent.py      # Background paper processing
-│   └── enrichment_agent.py           # Author and citation analytics
+│   ├── ingestion_agent.py       # LangGraph agent for paper processing
+│   └── enrichment_agent.py      # LangGraph agent for analytics
 ```
 
 ### Phase 3: Advanced Features (Weeks 5-6)
@@ -169,17 +169,17 @@ arxiv_research_system/
 # TUI and advanced analytics
 arxiv_research_system/
 ├── tui/
-│   ├── dashboard.py                # Real-time metrics display
-│   ├── research_explorer.py        # Interactive paper discovery
-│   ├── network_visualizer.py       # Citation network display
-│   └── user_preferences.py         # Custom settings management
+│   ├── dashboard.py             # Real-time metrics display
+│   ├── research_explorer.py     # Interactive paper discovery
+│   ├── network_visualizer.py    # Citation network display
+│   └── user_preferences.py      # Custom settings management
 ├── analytics/
-│   ├── trend_analyzer.py           # Topic evolution tracking
-│   ├── breakthrough_detector.py       # Impact paper identification
-│   └── collaboration_analyzer.py   # Research network analysis
+│   ├── trend_analyzer.py        # Topic evolution tracking
+│   ├── breakthrough_detector.py # Impact paper identification
+│   └── collaboration_analyzer.py # Research network analysis
 ```
 
-### Data Sources Confirmed
+## Data Sources Confirmed
 1. **HuggingFace Dataset**: Initial 2M paper seeding
 2. **Live Arxiv API**: For updates and enrichment
 3. **Semantic Scholar**: Author metadata and citations
@@ -199,6 +199,10 @@ PERFORMANCE_TARGETS = {
         'paper_insert': '<10ms/batch',
         'bulk_import': '<5min/2M_papers',
         'index_search': '<50ms'
+    },
+    'graph_operations': {
+        'citation_lookup': '<100ms',
+        'neighbor_discovery': '<200ms'
     },
     'user_interface': {
         'dashboard_load': '<1s',
@@ -251,10 +255,16 @@ CREATE TABLE paper_embeddings (
     paper_id UUID REFERENCES papers(id),
     embedding_type VARCHAR(20), -- 'title_lg', 'title_sm', 'abstract_lg', 'abstract_sm'
     embedding VECTOR(1536) OR VECTOR(768), -- Dim based on type
-    embedding_model VARCHAR(50), -- 'text-embedding-3-large', 'bert-base-uncased'
+    embedding_model VARCHAR(50), -- 'text-embedding-3-large', 'nomic-embed-text'
     performance_score DECIMAL(3,2), -- For model comparison
     created_at TIMESTAMP
 );
 ```
+
+## LangGraph Integration Reference
+- LangGraph Documentation: https://langchain-ai.github.io/langgraph/
+- State Management: See docs/langgraph/state.md
+- Nodes and Edges: See docs/langgraph/nodes_edges.md
+- Checkpointing: See docs/langgraph/state.md#checkpointing
 
 This PRD will be iterated on as we build.

@@ -1,44 +1,69 @@
 # Graph Persistence Skill
 
-This skill handles Orchestral AI context/state persistence for agent execution and resumption.
+This skill handles LangGraph state/checkpoint persistence for agent execution and resumption.
 
 ## Documentation
 For detailed architecture and patterns, reference:
-- [Context Management](../../../../docs/orchestral_ai/context.md)
-- [Architecture Overview](../../../../docs/orchestral_ai/architecture.md)
+- [State Management](../../../../docs/langgraph/state.md)
+- [Architecture Overview](../../../../docs/langgraph/architecture.md)
 
 ## Features
-- Context persistence for state survival across interruptions.
+- State checkpointing for state survival across interruptions.
 - Session resumption capabilities.
-- Integration with SQLite and PostgreSQL for hybrid state storage.
+- Integration with SQLite, PostgreSQL, and Memory for hybrid state storage.
+- Time travel support for debugging and exploration.
 
 ## Usage
-Load for reliable agent execution with Orchestral AI. Ensures state survives interruptions and supports session resumption.
+Load for reliable agent execution with LangGraph. Ensures state survives interruptions and supports session resumption.
 
 ## Implementation
-- Based on Orchestral AI persistence patterns for agents.
-- Includes config for database-backed persistence.
+Based on LangGraph persistence patterns for agents.
+Includes config for database-backed persistence.
 
 ## Code Examples
-From Orchestral AI persistence patterns:
+From LangGraph persistence patterns:
 
 ```python
-from orchestral import Agent
-from orchestral.llm import Claude
-from orchestral.context import Context
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.sqlite import SqliteSaver
+from typing import TypedDict
 
-# Create agent with context persistence
-agent = Agent(
-    llm=Claude(),
-    system_prompt="You are a research agent..."
-)
+class AgentState(TypedDict):
+    input: str
+    result: str | None
 
-# Save context for later resumption
-context = agent.context
-context.save_json("session_state.json")
+# Create checkpointer
+sqlite = SqliteSaver.from_conn_string("checkpoints.db")
 
-# Load context to resume
-resumed_context = Context.load_json("session_state.json")
+# Create graph
+graph = StateGraph(AgentState)
+graph.add_node("process", lambda s: {"result": f"processed: {s['input']}"})
+graph.set_entry_point("process")
+graph.add_edge("process", END)
+
+# Compile with checkpointer
+app = graph.compile(checkpointer=sqlite)
+
+# Run with checkpointing
+config = {"configurable": {"thread_id": "session_123"}}
+result = app.invoke({"input": "hello"}, config=config)
+
+# Resume with same config (state persists)
+result = app.invoke({"input": "world"}, config=config)
+
+# Time travel: List checkpoints
+for checkpoint in app.checkpointer.list(config):
+    print(f"ID: {checkpoint['id']}, Created: {checkpoint['metadata']['created_at']}")
+
+# Replay from checkpoint
+replay_config = {
+    "configurable": {
+        "thread_id": "session_123",
+        "checkpoint_id": "checkpoint_abc"
+    }
+}
+for event in app.stream(None, config=replay_config):
+    print(event)
 ```
 
 ## Integration with Project

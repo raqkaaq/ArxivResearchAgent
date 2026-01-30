@@ -1,22 +1,23 @@
 # Project Documentation
 
-## Orchestral AI Framework
+## LangGraph Framework
 
-Comprehensive documentation for the Orchestral AI framework used in this project:
+Comprehensive documentation for the LangGraph framework used in this project:
 
-**Location:** [./orchestral_ai/](orchestral_ai/)
+**Location:** [./langgraph/](langgraph/)
 
 | Document | Description |
 |----------|-------------|
-| [README](orchestral_ai/README.md) | Overview, quickstart, and navigation |
-| [Architecture](orchestral_ai/architecture.md) | Core design principles and system architecture |
-| [Context Management](orchestral_ai/context.md) | Context class, state management, and persistence |
-| [Tools](orchestral_ai/tools.md) | Tool definition, execution, and built-in tools |
-| [Providers](orchestral_ai/providers.md) | LLM provider integration (OpenAI, Anthropic, etc.) |
-| [Messages](orchestral_ai/messages.md) | Message types, formats, and universal representation |
-| [Examples](orchestral_ai/examples.md) | Comprehensive code examples and patterns |
-| [API Reference](orchestral_ai/api.md) | Complete API documentation |
-| [Design Decisions](orchestral_ai/design.md) | Architectural choices and rationale |
+| [README](langgraph/README.md) | Overview, quickstart, and navigation |
+| [Architecture](langgraph/architecture.md) | Core design principles and system architecture |
+| [State Management](langgraph/state.md) | TypedDict state, checkpoints, and persistence |
+| [Nodes and Edges](langgraph/nodes_edges.md) | Node types, edge patterns, and conditional routing |
+| [Tools](langgraph/tools.md) | Tool definition, execution, and built-in tools |
+| [Providers](langgraph/providers.md) | LLM provider integration (OpenAI, Anthropic, etc.) |
+| [Messages](langgraph/messages.md) | Message types, formats, and state representation |
+| [Examples](langgraph/examples.md) | Comprehensive code examples and patterns |
+| [API Reference](langgraph/api.md) | Complete API documentation |
+| [Design Decisions](langgraph/design.md) | Architectural choices and rationale |
 
 ---
 
@@ -29,9 +30,10 @@ Will add more later.
 
 ## Sources
 
-- **Orchestral AI Paper:** arXiv:2601.02577 ("Orchestral AI: A Framework for Agent Orchestration")
-- **Orchestral AI Repository:** https://github.com/orchestralAI/orchestral-ai
-- **Orchestral AI Documentation:** https://orchestral-ai.com/docs
+- **LangGraph Documentation:** https://langchain-ai.github.io/langgraph/
+- **LangGraph GitHub:** https://github.com/langchain-ai/langgraph
+- **LangChain Documentation:** https://python.langchain.com/docs
+- **LangChain Expression Language (LCEL):** https://python.langchain.com/docs/concepts/lcel
 
 ---
 
