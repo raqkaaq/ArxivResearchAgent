@@ -35,7 +35,7 @@ To create an effective SDK, focus on these approaches, drawing from API best pra
 - **Cross-References**: Maintain paper IDs for linking between PostgreSQL embeddings and Neo4j graphs.
 
 ### 5. Integration and Extensibility
-- **Orchestral AI Compatibility**: Design as a tool/provider for Orchestral AI (e.g., custom retriever for citations).
+- **LangGraph Compatibility**: Design as a tool/provider for LangGraph (e.g., custom retriever for citations).
 - **Neo4j Integration**: Provide methods for graph construction from Semantic Scholar data.
 - **Configurable**: Support API keys, custom endpoints; allow switching to Arxiv fallback.
 - **Testing**: Unit tests for API calls; mock responses for reliability.

@@ -36,7 +36,7 @@ This TODO outlines the iterative implementation of the Arxiv Research Agent syst
 - [ ] Implement agentic nodes (retrieve, grade, rewrite)
 - [ ] Build hybrid retrieval (vector + graph) with fusion and ranking
 - [ ] Implement pre-agent mode (standalone chain: Retrieve → Generate)
-- [ ] Implement agent tool mode (Orchestral AI graph with conditional edges)
+    - [ ] Implement agent tool mode (LangGraph graph with conditional edges)
 - [ ] Hybrid retrieval test (vector + graph)
 - [ ] Unit test: RAG retrieval relevance
 - [ ] Performance target: Hybrid RAG retrieval <3s, Neo4j graph query <1s
@@ -44,10 +44,10 @@ This TODO outlines the iterative implementation of the Arxiv Research Agent syst
 ## Phase 4: Agent Layer
 - [ ] Load multiagent_supervisor, branch_agent, graph_persistence skills
 - [ ] Implement supervisor agent for routing (CLI vs. Automator) using multiagent_supervisor
-- [ ] Add Orchestral AI checkpointer for persistence using graph_persistence
+    - [ ] Add LangGraph checkpointer for persistence using graph_persistence
 - [ ] Implement interrupts for human-in-loop (e.g., confirm branches)
 - [ ] Enable streaming for real-time responses in nodes
-- [ ] Integrate tools for external APIs (Arxiv/Semantic Scholar as Orchestral AI tools)
+    - [ ] Integrate tools for external APIs (Arxiv/Semantic Scholar as LangGraph tools)
 - [ ] Build CLI subgraph (input, RAG, response nodes)
 - [ ] Add user feedback collection (likes in SQLite)
 - [ ] Build Automator subgraph (pull, embed, similarity, classify nodes) with BranchAgent

@@ -426,7 +426,38 @@ graph.add_edge("coder", "supervisor")
 graph.add_edge("reviewer", "supervisor")
 ```
 
-### 6.2 Custom Agent Implementation
+### 6.2 LangGraph Supervisor Library
+
+In February 2025, LangChain released **langgraph-supervisor**, a lightweight Python library that simplifies building hierarchical multi-agent systems with LangGraph. This library provides higher-level abstractions for supervisor-worker patterns:
+
+**Key Features:**
+- Single supervisor (orchestrator) agent handles all user interactions
+- Supervisor delegates tasks to worker agents
+- Worker agents communicate exclusively with the supervisor
+- Support for multiple hierarchical levels (supervisors of supervisors)
+
+**Installation:**
+```bash
+pip install langgraph-supervisor
+```
+
+**Basic Usage:**
+```python
+from langgraph_supervisor import create_supervisor
+
+# Create supervisor with worker agents
+supervisor = create_supervisor(
+    agents=[research_agent, coder_agent, reviewer_agent],
+    model=llm
+)
+
+# Compile and use
+app = supervisor.compile()
+```
+
+The langgraph-supervisor library is recommended for projects requiring quick setup of hierarchical multi-agent systems with minimal boilerplate.
+
+### 6.3 Custom Agent Implementation
 
 ```python
 from langchain_core.messages import SystemMessage

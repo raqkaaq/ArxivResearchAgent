@@ -27,7 +27,7 @@ The Context Management is a modular system with:
 - **Storage Layer**: SQLite for relational conversation logs; PostgreSQL with pgvector for vectorized compressions.
 - **Compression Layer**: LLM-driven summarization and pruning.
 - **Retrieval Layer**: Query SQLite and PostgreSQL for archived context; interface with Ollama/Gemini.
-- **Integration Layer**: Orchestral AI nodes for pre-LLM adjustments.
+- **Integration Layer**: LangGraph nodes for pre-LLM adjustments.
 
 Components integrate via APIs, with fallbacks for robustness.
 
@@ -86,13 +86,13 @@ flowchart TD
   - **KV Cache Compression**: Compress cached context (KVzip-style).
   - **Hierarchical Fitting**: Short-term in-window, long-term in SQLite.
   - **Reconstruction**: Rebuild from compressed data.
-- **API Interfacing**: Orchestral AI calls Ollama/Gemini for compression; PostgreSQL for vector queries.
-- **Integration**: Pre-LLM Orchestral AI node; uses SQLite and PostgreSQL storage.
+- **API Interfacing**: LangGraph integration calls Ollama/Gemini for compression; PostgreSQL for vector queries.
+- **Integration**: Pre-LLM LangGraph node; uses SQLite and PostgreSQL storage.
 
 ## Requirements and Tradeoffs
 - **Functional**: Compress/fit histories with dynamic thresholds based on current LLM.
 - **Non-Functional**: Compression preserves 80% relevance; retrieval <1s.
-- **Dependencies**: sqlite3, psycopg2-binary, pgvector, orchestral-ai.
+- **Dependencies**: sqlite3, psycopg2-binary, pgvector, langgraph.
 - **Tradeoffs**: Compression adds LLM calls (latency); SQLite + PostgreSQL storage is simpler but requires coordination.
 
 ## Integration with Arxiv Agent

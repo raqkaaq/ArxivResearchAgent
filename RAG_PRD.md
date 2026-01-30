@@ -1,11 +1,11 @@
 # RAG Product Requirements Document: Graph-Enhanced Agentic RAG for Arxiv Research Agent
 
 ## Overview
-This PRD details the "Hybrid Retrieval Augmented Generation" system, a sophisticated framework combining vector-based retrieval (via PostgreSQL with pgvector), knowledge graph reasoning (for structured relations like citations via Neo4j), and hierarchical multi-agent orchestration (via Orchestral AI) to enable deep, faithful reasoning for Arxiv paper queries. The system addresses limitations of vanilla RAG (e.g., surface-level similarity) by modeling domain-specific relations and enabling agentic adaptation.
+This PRD details the "Hybrid Retrieval Augmented Generation" system, a sophisticated framework combining vector-based retrieval (via PostgreSQL with pgvector), knowledge graph reasoning (for structured relations like citations via Neo4j), and hierarchical multi-agent orchestration (via LangGraph) to enable deep, faithful reasoning for Arxiv paper queries. The system addresses limitations of vanilla RAG (e.g., surface-level similarity) by modeling domain-specific relations and enabling agentic adaptation.
 
 The RAG works in two modes:
 - **Pre-Agent**: A standalone chain for quick, direct retrieval and generation.
-- **Agent Tool**: Integrated into Orchestral AI graphs for iterative, multi-step reasoning in the CLI chatbot and user-triggered automator.
+- **Agent Tool**: Integrated into LangGraph graphs for iterative, multi-step reasoning in the CLI chatbot and user-triggered automator.
 
 This design ensures robustness, scalability, and alignment with Arxiv's citation-heavy ecosystem, enhancing the overall research agent.
 
@@ -26,7 +26,7 @@ These papers provide empirical backing for graph-agent hybrids, outperforming ve
 The RAG is a hybrid system with three pillars:
 - **Vector Retrieval**: PostgreSQL with pgvector for embedding-based similarity (using Ollama/Gemini).
 - **Knowledge Graph**: Neo4j for graph-based relationship modeling and relationship traversal (papers, authors, citations).
-- **Agentic Orchestration**: Orchestral AI for hierarchical agents (supervisor + sub-agents) handling reasoning and routing.
+- **Agentic Orchestration**: LangGraph for hierarchical agents (supervisor + sub-agents) handling reasoning and routing.
 
 Components integrate via APIs, with fallbacks for robustness.
 
@@ -37,7 +37,7 @@ graph TD
     B --> D[Graph Traversal - Neo4j]
     C --> E[Hybrid Ranking]
     D --> E
-    E --> F[Agentic Layer - Orchestral AI]
+    E --> F[Agentic Layer - LangGraph]
     F --> G[Supervisor Agent]
     G --> H[Retrieval Sub-Agent]
     G --> I[Reasoning Sub-Agent]
@@ -48,7 +48,7 @@ graph TD
 
 - **Vector Retrieval (PostgreSQL/pgvector)**: Embeds and stores paper abstracts; performs semantic search.
 - **Knowledge Graph (Neo4j)**: Models relations; queries for connected entities.
-- **Agentic Layer (Orchestral AI)**: Nodes for grading, rewriting; edges for conditional flow.
+- **Agentic Layer (LangGraph)**: Nodes for grading, rewriting; edges for conditional flow.
 - **Integration**: Shared state across components; LLMs (Ollama primary) for generation/grading.
 
 ## Runtime Flow
@@ -65,7 +65,7 @@ flowchart TD
     E --> F[Response]
 ```
 
-### Agent Tool Mode (Orchestral AI Graph)
+### Agent Tool Mode (LangGraph Graph)
 For complex queries: Full reasoning with agents.
 ```mermaid
 flowchart TD
@@ -94,10 +94,10 @@ flowchart TD
   - **PageRank**: Ranks nodes by importance based on incoming links (citations). Iteratively calculates scores—higher for nodes linked by influential others. Used to rank retrieved papers by citation influence.
   - **Centrality**: Measures node influence (e.g., degree for connections, betweenness for bridges in citation networks).
   - **Shortest Path**: Finds related papers via minimal citation hops. Nodes (papers/authors), edges (citations).
-- **Agentic Layer**: Supervisor routes to sub-agents (retrieval, reasoning); Command-based routing in Orchestral AI.
+- **Agentic Layer**: Supervisor routes to sub-agents (retrieval, reasoning); Command-based routing in LangGraph.
 - **LLM Integration**: Ollama for local; Gemini fallback. Structured prompts for grading/rewriting.
 - **Modes**:
-  - Pre-Agent: Orchestral AI chain for fast responses.
+  - Pre-Agent: LangGraph chain for fast responses.
   - Agent Tool: Full graph for adaptive reasoning.
 - **Features**: 
   - Speculative drafting (LLM drafts response to guide retrieval).
@@ -108,7 +108,7 @@ flowchart TD
 ## Requirements and Tradeoffs
 - **Functional**: Retrieve Arxiv papers via vectors/graphs; generate faithful answers; classify/ingest via agents.
 - **Non-Functional**: Scalability (1000+ papers); latency (<5s for retrieval); robustness (handle noisy metadata).
-- **Dependencies**: orchestral-ai, psycopg2-binary, neo4j, pgvector, arxiv, requests, tenacity.
+- **Dependencies**: langgraph, psycopg2-binary, neo4j, pgvector, arxiv, requests, tenacity.
 - **Tradeoffs**:
   - Neo4j adds depth with persistent graph storage (data preserved across restarts).
   - Agents improve reasoning but increase latency; limit to complex queries.

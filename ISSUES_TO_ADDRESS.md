@@ -5,10 +5,10 @@ This document captures potential issues, risks, and challenges identified during
 
 ---
 
-## 1. Orchestral AI Integration Issues
+## 1. LangGraph Integration Issues
 
 ### 1.1 State Persistence Complexity
-- **Issue**: Managing state across Orchestral AI graph nodes with multiple database backends (PostgreSQL, Neo4j, SQLite) creates coordination complexity
+- **Issue**: Managing state across LangGraph graph nodes with multiple database backends (PostgreSQL, Neo4j, SQLite) creates coordination complexity
 - **Risk**: State inconsistency between graph execution and persistent storage
 - **Mitigation**: Implement atomic transactions where possible; use checkpointer for in-session recovery
 
@@ -199,7 +199,7 @@ This document captures potential issues, risks, and challenges identified during
 
 | Issue Category | High Priority | Medium Priority | Low Priority |
 |---------------|---------------|-----------------|--------------|
-| Orchestral AI | State Persistence | BranchAgent Latency | Graph Interrupts |
+| LangGraph | State Persistence | BranchAgent Latency | Graph Interrupts |
 | Database | Multi-Database Consistency | Partition Management | - |
 | LLM | Model Availability | Embedding Consistency | Context Management |
 | Data Quality | Arxiv Rate Limits | Semantic Scholar Limits | HuggingFace Completeness |

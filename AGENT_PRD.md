@@ -1,14 +1,14 @@
 # Agent Layer Product Requirements Document: Multiagent Orchestration for Arxiv Research Agent
 
 ## Overview
-This PRD details the agent layer of the Arxiv Research Agent, focusing on multiagent orchestration via Orchestral AI. It includes the supervisor for routing, subgraphs for CLI and automator tasks, and specialized agents like BranchAgent for dynamic context branching. The layer emphasizes stateful, adaptive reasoning while separating concerns (e.g., no direct LLM calls in non-agent components).
+This PRD details the agent layer of the Arxiv Research Agent, focusing on multiagent orchestration via LangGraph. It includes the supervisor for routing, subgraphs for CLI and automator tasks, and specialized agents like BranchAgent for dynamic context branching. The layer emphasizes stateful, adaptive reasoning while separating concerns (e.g., no direct LLM calls in non-agent components).
 
 The agent layer enables intelligent task delegation, with BranchAgent as the primary specialized type for exploring multiple approaches and consolidating results.
 
 ## Supervisor Agent
 - **Role**: Top-level router that evaluates user input and delegates to appropriate subgraphs.
 - **Functionality**: Parses input (e.g., "chat" triggers CLI, "automate" triggers automator); updates shared state.
-- **Integration**: Orchestral AI node; uses Command for routing.
+- **Integration**: LangGraph node; uses Command for routing.
 
 ## Subgraph Agents
 ### CLI Subgraph
@@ -25,7 +25,7 @@ The agent layer enables intelligent task delegation, with BranchAgent as the pri
 BranchAgent is the primary specialized agent type, enabling dynamic context branching for complex tasks.
 
 ### Overview
-BranchAgent is an Orchestral AI node/agent that dynamically explores multiple approaches to solve a task (e.g., different RAG strategies or prompt variants), evaluates results via LLM, and merges the best outcome into the main conversation context. It is the only specialized agent type currently; others may be added later.
+BranchAgent is a LangGraph node/agent that dynamically explores multiple approaches to solve a task (e.g., different RAG strategies or prompt variants), evaluates results via LLM, and merges the best outcome into the main conversation context. It is the only specialized agent type currently; others may be added later.
 
 ### Mechanism
 - **Trigger**: Activated by supervisor or subgraphs for ambiguous/complex queries (e.g., heuristic on query length or entropy).
@@ -50,19 +50,19 @@ graph TD
 
 ### Requirements
 - **Functional**: Explore 2-3 approaches; evaluate/merge reliably.
-- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval; use Orchestral AI checkpointer for persistence, interrupts for human-in-loop, streaming for real-time responses.
-- **Dependencies**: Orchestral AI (with checkpointer, interrupts, streaming), LLM integration.
+- **Non-Functional**: Max 3 branches to limit latency; LLM calls for eval; use LangGraph checkpointer for persistence, interrupts for human-in-loop, streaming for real-time responses.
+- **Dependencies**: LangGraph (with checkpointer, interrupts, streaming), LLM integration.
 
 ## State Sharing & Communication
 - **Shared State**: TypedDict with liked_embeddings (list of vectors), PostgreSQL client, Neo4j connection, SQLite connection, user_id.
 - **Stateful Design**: Hybrid approach - stateful graphs with DB persistence for context-heavy tasks (CLI chat, Context Management).
 - **Communication Mechanisms**:
-  - Command-based routing via Orchestral AI Command for subgraph transitions
+  - Command-based routing via LangGraph Command for subgraph transitions
   - State mutations via SharedState updates in supervisor and nodes
   - Interrupts for human-in-loop interventions (e.g., confirm BranchAgent branches)
   - Streaming for real-time node outputs and progress updates
 - **Persistence Layers**:
-  - Orchestral AI checkpointer (MemorySaver) for in-session graph state recovery
+  - LangGraph checkpointer (MemorySaver) for in-session graph state recovery
   - PostgreSQL/Neo4j for long-term storage (load on startup for state restoration)
 - **Edge Case Handling**:
   - Concurrent CLI/automator runs: Use threading locks or queue for thread safety
