@@ -1,8 +1,10 @@
-# LangGraph Nodes and Edges
+# Node and Edge Types Guide
+
+This guide provides a comprehensive overview of node and edge types in LangGraph, covering all available node types, edge configurations, and best practices for building robust graph-based agent systems.
 
 ## Overview
 
-Nodes are Python functions that transform state. Edges define how control flows between nodes. This document covers node types, edge patterns, and conditional routing.
+In LangGraph, nodes represent discrete processing steps and edges define the flow between these steps. Understanding the different types of nodes and how to configure edges is crucial for building effective agent architectures.
 
 ---
 
