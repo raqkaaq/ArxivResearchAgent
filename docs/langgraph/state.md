@@ -66,6 +66,132 @@ class ResearchState(TypedDict):
 
 ---
 
+## Advanced State Patterns
+
+### 1.1 State Composition Patterns
+
+#### 1.1.1 State Inheritance
+
+```python
+from typing import TypedDict, Required, NotRequired
+
+class BaseState(TypedDict):
+    """Base state with common fields"""
+    timestamp: Required[str]
+    metadata: Required[Dict[str, any]]
+    
+class ResearchState(BaseState):
+    """Research-specific state extending base state"""
+    query: Required[str]
+    papers: Required[List[Dict]]
+    summary: NotRequired[str]
+    citations: NotRequired[int]
+```
+
+#### 1.1.2 State Union Types
+
+```python
+from typing import TypedDict, Union
+
+class UserInputState(TypedDict):
+    """State for user input processing"""
+    user_input: str
+    input_type: str
+    
+class SearchState(TypedDict):
+    """State for search operations"""
+    query: str
+    results: List[Dict]
+    search_engine: str
+    
+class CombinedState(TypedDict):
+    """Union of different state types"""
+    state_type: str  # "input", "search", "analysis"
+    data: Union[UserInputState, SearchState, Dict]
+```
+
+### 1.2 State Validation Patterns
+
+#### 1.2.1 Pydantic Validation Integration
+
+```python
+from typing import TypedDict
+from pydantic import BaseModel, validator
+
+class ValidatedState(TypedDict):
+    """State with validation"""
+    user_input: str
+    confidence: float
+    
+    @validator('confidence')
+    def confidence_must_be_valid(cls, v):
+        if v < 0 or v > 1:
+            raise ValueError('Confidence must be between 0 and 1')
+        return v
+```
+
+#### 1.2.2 Custom Validation Functions
+
+```python
+from typing import TypedDict
+
+def validate_state(state: TypedDict) -> bool:
+    """Validate state before processing"""
+    required_fields = ['input', 'messages']
+    for field in required_fields:
+        if field not in state:
+            return False
+    return True
+
+def sanitize_state(state: TypedDict) -> TypedDict:
+    """Sanitize state before checkpointing"""
+    sanitized = state.copy()
+    # Remove sensitive fields
+    if 'api_key' in sanitized:
+        del sanitized['api_key']
+    return sanitized
+```
+
+### 1.3 State Transformation Patterns
+
+#### 1.3.1 State Mapping
+
+```python
+from typing import TypedDict, Callable
+
+def map_state(
+    state: TypedDict,
+    mapper: Callable[[TypedDict], TypedDict]
+) -> TypedDict:
+    """Apply transformation to state"""
+    return mapper(state)
+
+# Example mapper function
+def uppercase_input(state: AgentState) -> AgentState:
+    """Transform input to uppercase"""
+    return {**state, 'input': state['input'].upper()}
+```
+
+#### 1.3.2 State Filtering
+
+```python
+from typing import TypedDict, Callable
+
+def filter_state(
+    state: TypedDict,
+    filter_fn: Callable[[TypedDict], bool]
+) -> TypedDict | None:
+    """Filter state based on condition"""
+    return state if filter_fn(state) else None
+
+# Example filter function
+def has_confidence(state: AgentState) -> bool:
+    """Check if state has confidence score"""
+    return 'confidence' in state and state['confidence'] is not None
+```
+
+---
+
 ## State Updates
 
 ### 2.1 Returning Partial Updates
@@ -73,27 +199,12 @@ class ResearchState(TypedDict):
 Nodes return partial state updates:
 
 ```python
-def process_query(state: ResearchState) -> ResearchState:
-    """Process user query"""
-    query = state["query"]
-    
-    # Do processing
-    processed_query = preprocess(query)
-    
-    # Return only the fields to update
-    return {
-        "query": processed_query,
-        "metadata": {"processed_at": datetime.now()}
-    }
-
-def search_papers(state: ResearchState) -> ResearchState:
-    """Search for papers"""
-    results = arxiv_search(state["query"])
-    
-    return {
-        "papers": results,
-        "metadata": {"searched_at": datetime.now()}
-    }
+class AgentState(TypedDict):
+    input: str                    # Required: user input
+    messages: List[str]           # Required: conversation history
+    context: Dict[str, any]       # Optional: additional context
+    result: Optional[str]         # Optional: final result
+    confidence: Optional[float]   # Optional: confidence score
 ```
 
 ### 2.2 Accumulating Values
